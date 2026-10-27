@@ -93,3 +93,6 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+
+# Local-only mid-term report; do not upload to GitHub
+/final_midterm_report/
