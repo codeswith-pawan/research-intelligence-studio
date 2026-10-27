@@ -2,8 +2,13 @@
 **Title:** {paper_title}
 **Abstract:** {paper_abstract}
 
-# Extracted Evidence (from Agent 1)
+# Criterion Scores and Source-Verified Evidence (from Agent 1)
 {json_dump_of_extractions}
+
+# Verified Evidence by Criterion:
+{evidence_summary}
+
+Only the quotations in `verified_evidence` are allowed as support for paper-specific statements. Each has a stable `evidence_id`; unverified quotation text and unsourced extraction narratives are intentionally excluded.
 
 # Review Configuration
 **Criteria Weights:**
@@ -15,20 +20,48 @@
 # Task
 Synthesize these criterion-level assessments into a comprehensive review.
 
-Output as valid JSON matching this schema:
+CRITICAL INSTRUCTIONS:
+1. Output ONLY a single valid JSON object matching the schema below.
+2. The JSON must have exactly these top-level keys in this order: executive_summary, decision_confidence, recommendation, recommendation_rationale, detailed_assessment, revision_suggestions, criterion_narrative.
+3. Do NOT nest `decision_confidence`, `recommendation`, or any other key inside `criterion_narrative`.
+4. In `executive_summary`: Write a meaningful, structured summary covering:
+   - Research Problem & Motivation: The core problem addressed [Evidence: criterion_id:Qn].
+   - Methodology & Proposed Approach: Key methods, models, or theoretical frameworks [Evidence: criterion_id:Qn].
+   - Key Contributions: Primary results, findings, or theoretical guarantees [Evidence: criterion_id:Qn].
+   - Evaluation & Empirical Results (when verified evidence is available) [Evidence: criterion_id:Qn].
+   - Stated Limitations (only when explicitly supported by verified evidence; never guess or invent limitations) [Evidence: criterion_id:Qn].
+   Every factual sentence asserting a paper claim must cite its supporting verified evidence ID [Evidence: criterion_id:Qn] immediately before its final punctuation.
+5. In `criterion_narrative`:
+   - Map EVERY evaluated criterion ID (string) to a narrative string.
+   - For criteria WITH verified evidence above: write a concise 1-2 sentence explanation summarizing the verified evidence and citing ONLY that criterion's verified quote ID [Evidence: criterion_id:Qn].
+   - For criteria with NO verified quotations: write EXACTLY: "No source-grounded narrative is available for this criterion; review its verified evidence manually."
+6. In `detailed_assessment` and `revision_suggestions`:
+   - `major_strengths`: 1-3 distinct Key Strengths of the work, each citing a verified evidence ID [Evidence: criterion_id:Qn].
+   - `major_concerns`: Significant Key Weaknesses directly grounded in verified evidence. If none were identified in the verified evidence, leave as empty list `[]`. Never fabricate flaws.
+   - `minor_issues`: Minor concerns or presentation issues directly grounded in verified evidence. If none were identified, leave as empty list `[]`.
+   - `revision_suggestions`: Concrete, actionable suggestions grounded in the verified evidence or evaluated criteria. If none are supported, leave as empty list `[]`.
+
+```json
 {{
-  "executive_summary": "<string: 3-4 sentence summary of the paper, its strengths, and weaknesses>",
+  "executive_summary": "<string: comprehensive structured summary covering problem, method, contributions, and verified results/limitations; each sentence asserting a claim MUST end with [Evidence: criterion_id:Qn]>",
+  "decision_confidence": <float between 0.0 and 1.0, e.g. 0.85>,
+  "recommendation": "<one of: 'Accept', 'Accept with Revisions', 'Revise and Resubmit', 'Reject'>",
+  "recommendation_rationale": "<string: 2-3 sentences justifying the provisional recommendation>",
   "detailed_assessment": {{
-    "major_strengths": ["<string: 2-4 bullet points highlighting exceptional aspects>"],
-    "major_concerns": ["<string: 0-3 bullet points of critical issues>"],
-    "minor_issues": ["<string: 2-4 bullet points of areas for improvement>"]
+    "major_strengths": ["<string: each factual item must cite verified evidence>"],
+    "major_concerns": [],
+    "minor_issues": []
   }},
+  "revision_suggestions": [],
   "criterion_narrative": {{
-    "<criterion_id_1>": "<string: 2-3 sentence narrative for this criterion>",
-    "<criterion_id_2>": "<string: 2-3 sentence narrative for this criterion>"
-  }},
-  "recommendation": "<string: 'Accept', 'Accept with Revisions', 'Revise and Resubmit', or 'Reject'>",
-  "recommendation_rationale": "<string: 2-3 sentences justifying the decision>",
-  "revision_suggestions": ["<string: 3-5 concrete, actionable suggestions for authors>"],
-  "decision_confidence": <float: 0.0-1.0>
+    "<criterion_id_1>": "<string: concise explanation citing this criterion's verified ID [Evidence: <criterion_id_1>:Q1]>",
+    "<criterion_id_2>": "No source-grounded narrative is available for this criterion; review its verified evidence manually."
+  }}
 }}
+```
+
+Reliability and research framing:
+- Distinguish theoretical, empirical, survey, and applied work only when the paper supports that classification.
+- Do not penalize theoretical work for lacking experiments unless a configured criterion requires experiments.
+- Use only the supplied criterion assessments and verified quotations for paper-specific claims. Do not invent novelty comparisons, flaws, limitations, or revision suggestions.
+- If evidence is missing or contradictory, state the uncertainty and recommend manual review rather than filling gaps with generic criticism.

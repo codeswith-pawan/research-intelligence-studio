@@ -315,7 +315,7 @@ def main():
         
         print(f"   ✅ [Agent 2] Completed synthesis in {synthesis_time:.1f}s", flush=True)
         emitter.emit(StageCompleted(stage_name="synthesis", duration_s=synthesis_time,
-                                     result_summary=f"score={review.overall_score:.1f}"))
+                                     result_summary=f"score={review.overall_score:.1f}" if review.overall_score is not None else "failed"))
         
         # 10. Save Individual Output
         print(f"   💾 [Output] Saving review...", flush=True)

@@ -10,10 +10,11 @@ Analyze this paper against the criterion "{criterion_name}". Provide:
 
 1.  **score** (on the defined scale): Your assessment as an integer.
 2.  **score_justification** (2-3 sentences): Why this score?
-3.  **evidence** (3-5 key quotes):
-    * **quote**: Direct quote from the paper.
-    * **page_reference**: Page/section reference (e.g., "Page 5, Section 3.1"). If unknown, state "N/A".
+3.  **evidence** (0-3 key quotes):
+    * **quote**: Copy one continuous passage verbatim from the supplied paper text. When page-labeled PDF blocks are present, use one block only. Preserve wording and punctuation; never paraphrase or stitch text together.
+    * **page_reference**: Use the 1-based PDF page number in that block's marker (for example, "PDF Page 5"). If page markers are absent, use "N/A". Do not use the journal's printed page number.
     * **relevance**: How this quote supports the assessment.
+    * If you cannot find an exact supporting passage in the supplied text, return an empty evidence list instead of guessing.
 4.  **strengths** (bullet points): What the paper does well for this criterion.
 5.  **weaknesses** (bullet points): What could be improved for this criterion.
 6.  **confidence** (0.0-1.0): How confident you are in this assessment (e.g., 0.85).
@@ -29,3 +30,10 @@ Output as valid JSON matching this schema:
   "weaknesses": ["<string>"],
   "confidence": <float>
 }}
+
+Research framing:
+- Identify the paper as theoretical, empirical, survey, or applied only when the paper itself supports that classification.
+- For theoretical work, assess proofs, assumptions, definitions, and analytical examples. Do not penalize absent experiments unless the configured criterion explicitly requires them.
+- Ground each claim in the supplied paper text. Do not invent weaknesses, novelty comparisons, limitations, or revision requests.
+
+Return only one JSON object matching the schema above. Include no prose or markdown outside it. If no verbatim supporting quote is available in the supplied text, set "evidence" to [].

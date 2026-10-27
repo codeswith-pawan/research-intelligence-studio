@@ -1,0 +1,59 @@
+# Paper Information
+**Title:** {paper_title}
+**Abstract:** {paper_abstract}
+
+# Criterion Scores and Source-Verified Evidence (from Agent 1)
+{json_dump_of_extractions}
+
+# Verified Evidence by Criterion:
+{evidence_summary}
+
+Only the quotations in `verified_evidence` are allowed as support for paper-specific statements. Each has a stable `evidence_id`; unverified quotation text and unsourced extraction narratives are intentionally excluded.
+
+# Review Configuration
+**Criteria Weights:**
+{weights_table}
+
+**Overall Weighted Score:** {calculated_score}/100
+**Preliminary Recommendation:** {calculated_recommendation}
+
+# Task
+Synthesize these criterion-level assessments into a comprehensive review.
+
+CRITICAL INSTRUCTIONS:
+1. Output ONLY a single valid JSON object matching the schema below.
+2. The JSON must have exactly these top-level keys in this order: executive_summary, decision_confidence, recommendation, recommendation_rationale, detailed_assessment, revision_suggestions, criterion_narrative.
+3. Do NOT nest `decision_confidence`, `recommendation`, or any other key inside `criterion_narrative`.
+4. In `executive_summary`: write 2-3 concise sentences summarizing key findings. Every sentence making a paper claim must cite its supporting verified evidence ID [Evidence: criterion_id:Qn] immediately before its final punctuation.
+5. In `criterion_narrative`:
+   - Map EVERY evaluated criterion ID (string) to a narrative string.
+   - For criteria WITH verified evidence above: write a concise 1-2 sentence explanation summarizing the verified evidence and citing ONLY that criterion's verified quote ID [Evidence: criterion_id:Qn].
+   - For criteria with NO verified quotations: write EXACTLY: "No source-grounded narrative is available for this criterion; review its verified evidence manually."
+6. In `detailed_assessment` and `revision_suggestions`:
+   - `major_strengths`: 1-2 key strengths, each citing a verified evidence ID.
+   - `major_concerns`, `minor_issues`, `revision_suggestions`: if no verified quotations document specific flaws or concerns, leave these as empty lists `[]`. Do NOT fabricate flaws, unverified criticisms, or generic advice.
+
+```json
+{{
+  "executive_summary": "<string: 2-3 concise sentences; each sentence MUST end with [Evidence: criterion_id:Qn]>",
+  "decision_confidence": <float between 0.0 and 1.0, e.g. 0.85>,
+  "recommendation": "<one of: 'Accept', 'Accept with Revisions', 'Revise and Resubmit', 'Reject'>",
+  "recommendation_rationale": "<string: 2-3 sentences justifying the provisional recommendation>",
+  "detailed_assessment": {{
+    "major_strengths": ["<string: each factual item must cite verified evidence>"],
+    "major_concerns": [],
+    "minor_issues": []
+  }},
+  "revision_suggestions": [],
+  "criterion_narrative": {{
+    "<criterion_id_1>": "<string: concise explanation citing this criterion's verified ID [Evidence: <criterion_id_1>:Q1]>",
+    "<criterion_id_2>": "No source-grounded narrative is available for this criterion; review its verified evidence manually."
+  }}
+}}
+```
+
+Reliability and research framing:
+- Distinguish theoretical, empirical, survey, and applied work only when the paper supports that classification.
+- Do not penalize theoretical work for lacking experiments unless a configured criterion requires experiments.
+- Use only the supplied criterion assessments and verified quotations for paper-specific claims. Do not invent novelty comparisons, flaws, limitations, or revision suggestions.
+- If evidence is missing or contradictory, state the uncertainty and recommend manual review rather than filling gaps with generic criticism.

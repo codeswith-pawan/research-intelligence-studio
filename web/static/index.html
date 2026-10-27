@@ -8,16 +8,41 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
+    <!-- Accessibility Skip Link -->
+    <a href="#review-dashboard" class="skip-link">Skip to review dashboard</a>
+
+    <!-- Header / Application Shell (Screen A) -->
+    <header class="header" role="banner">
         <div class="header-left">
-            <h1>Agentic Paper Review System</h1>
+            <div class="brand-block">
+                <div class="brand-mark" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1 class="brand-title">Research Intelligence Studio</h1>
+                    <span class="brand-subtitle">AI-Assisted Peer Review &middot; Evidence Verification System</span>
+                </div>
+            </div>
+            <div class="header-status-strip">
+                <div class="model-status-pill" title="Local Inference Engine - 100% Offline &amp; Private">
+                    <span class="status-dot online" aria-hidden="true"></span>
+                    <span class="model-label">Ollama &middot; llama3.2:3b</span>
+                </div>
+                <div id="active-run-pill" class="active-run-pill" title="Currently Selected Workspace Run">
+                    <span class="run-dot" aria-hidden="true"></span>
+                    <span id="active-run-name">No run selected</span>
+                </div>
+            </div>
         </div>
         <div class="header-right">
-            <select id="run-selector" class="select-input">
+            <select id="run-selector" class="select-input" aria-label="Select run directory">
                 <option value="">Select run directory...</option>
             </select>
-            <select id="mode-selector" class="select-input">
+            <select id="mode-selector" class="select-input" aria-label="Select execution mode">
                 <option value="standard">Standard Review</option>
                 <option value="literature">Literature-Grounded</option>
             </select>
@@ -28,7 +53,40 @@
         </div>
     </header>
 
-    <div class="main-content">
+    <!-- Persistent Top Navigation (Phase 8 Dedicated Navigation) -->
+    <nav class="app-top-nav" aria-label="Main application destinations">
+        <div class="nav-container">
+            <div class="nav-links" role="tablist">
+                <a href="#/overview" class="nav-item active" data-page="overview" role="tab" aria-selected="true" aria-current="page">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <span>System Overview</span>
+                </a>
+                <a href="#/paper-overview" class="nav-item" data-page="paper-overview" role="tab" aria-selected="false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
+                    <span>Paper Overview</span>
+                </a>
+                <a href="#/upload" class="nav-item" data-page="upload" role="tab" aria-selected="false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span>Upload Paper</span>
+                </a>
+                <a href="#/analysis" class="nav-item" data-page="analysis" role="tab" aria-selected="false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h5l3 7 4-14 3 7h5"/></svg>
+                    <span>Analysis Studio</span>
+                </a>
+                <a href="#/reviews" class="nav-item" data-page="reviews" role="tab" aria-selected="false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span>Past Reviews</span>
+                    <span id="nav-reviews-count" class="nav-count-badge">0</span>
+                </a>
+            </div>
+            <div class="nav-secondary-strip">
+                <span class="cost-pill-label">Inference Engine:</span>
+                <span class="cost-pill-val">$0.00 USD (Local Ollama)</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content" id="main-content">
         <!-- Left: Config Panel -->
         <aside class="config-panel" id="config-panel">
             <button class="panel-toggle" id="panel-toggle" title="Collapse panel">&lsaquo;</button>
@@ -42,6 +100,11 @@
 
             <!-- Config Tab -->
             <div id="tab-config" class="tab-panel active">
+                <div id="config-unsaved-banner" class="config-unsaved-banner" style="display:none">
+                    <span class="unsaved-dot"></span>
+                    <span>Unsaved configuration changes</span>
+                    <button id="config-discard-btn" class="btn btn-xs btn-secondary">Discard</button>
+                </div>
                 <div id="config-content" class="config-content">
                     <p class="placeholder-text">Select a run directory to view config</p>
                 </div>
@@ -52,6 +115,11 @@
 
             <!-- Criteria Tab -->
             <div id="tab-criteria" class="tab-panel">
+                <div id="criteria-weight-summary" class="criteria-weight-summary">
+                    <span class="weight-label">Total Weight:</span>
+                    <strong id="criteria-weight-value">—</strong>
+                    <span id="criteria-weight-status" class="weight-status-pill">Calculating...</span>
+                </div>
                 <div id="criteria-editor-wrap" class="editor-wrap">
                     <p class="placeholder-text">Select a run directory to edit criteria</p>
                 </div>
@@ -113,103 +181,993 @@
 
         <!-- Right: Main panels -->
         <div class="right-panels">
-            <!-- Progress Panel -->
-            <section class="progress-panel">
-                <h2>Progress</h2>
-                <div id="progress-bar-container" class="progress-bar-container">
-                    <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
-                </div>
-                <div class="progress-stats">
-                    <span id="progress-text">No active run</span>
-                    <span id="progress-eta"></span>
-                </div>
-                <div class="stage-indicators">
-                    <div class="stage-item" id="stage-ingest">
-                        <span class="stage-dot"></span>
-                        <span>Ingestion</span>
-                    </div>
-                    <div class="stage-item" id="stage-extraction">
-                        <span class="stage-dot"></span>
-                        <span>Extraction</span>
-                    </div>
-                    <div class="stage-item" id="stage-synthesis">
-                        <span class="stage-dot"></span>
-                        <span>Synthesis</span>
-                    </div>
-                    <div class="stage-item" id="stage-output">
-                        <span class="stage-dot"></span>
-                        <span>Output</span>
+            <!-- PAGE 1: SYSTEM OVERVIEW (Screen D / Route #/overview) -->
+            <div id="page-overview" class="page-view active" role="tabpanel" aria-label="System Overview">
+                <div class="overview-hero">
+                    <div class="overview-hero-content">
+                        <p class="overview-eyebrow">RESEARCH INTELLIGENCE PLATFORM</p>
+                        <h2 class="overview-hero-title">Scientific Manuscript Review &amp; Evidence Grounding</h2>
+                        <p class="overview-hero-desc">Offline, automated peer review diagnostics powered by local Ollama llama3.2:3b. Enforces strict quotation verification against original source manuscripts with zero cloud costs.</p>
                     </div>
                 </div>
-                <div class="cost-time-tracker">
-                    <div class="tracker-item">
-                        <span class="tracker-label">Cost</span>
-                        <span id="cost-display" class="tracker-value">$0.00</span>
-                    </div>
-                    <div class="tracker-item">
-                        <span class="tracker-label">Elapsed</span>
-                        <span id="elapsed-display" class="tracker-value">0s</span>
-                    </div>
-                    <div class="tracker-item">
-                        <span class="tracker-label">Current Paper</span>
-                        <span id="current-paper-display" class="tracker-value">-</span>
-                    </div>
-                </div>
-            </section>
 
-            <!-- Batch Progress -->
-            <section id="batch-panel" class="batch-panel" style="display:none">
-                <h2>Batch Progress</h2>
-                <div class="progress-bar-container">
-                    <div id="batch-progress-bar" class="progress-bar" style="width: 0%"></div>
-                </div>
-                <div class="batch-status">
-                    <span id="batch-text">0/0 directories</span>
-                    <span id="batch-current"></span>
-                </div>
-                <div id="batch-dirs-list" class="batch-dirs-list"></div>
-            </section>
+                <div class="overview-metrics-grid">
+                    <article class="overview-metric-card">
+                        <div class="overview-metric-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        </div>
+                        <div class="overview-metric-data">
+                            <span class="overview-metric-label">Total Papers Analyzed</span>
+                            <strong id="overview-total-papers" class="overview-metric-val">—</strong>
+                            <small class="overview-metric-sub" id="overview-papers-sub">Across all workspace runs</small>
+                        </div>
+                    </article>
 
-            <!-- Reports Table -->
-            <section class="results-panel">
-                <div class="results-header">
-                    <h2>Reports</h2>
-                    <div class="results-header-actions">
-                        <button id="refresh-reports-btn" class="btn btn-sm btn-secondary">Refresh</button>
-                        <button id="judge-btn" class="btn btn-sm btn-warning" disabled>Compare &amp; Judge</button>
-                        <button id="view-verdicts-btn" class="btn btn-sm btn-secondary" style="display:none">View Verdicts</button>
+                    <article class="overview-metric-card">
+                        <div class="overview-metric-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        </div>
+                        <div class="overview-metric-data">
+                            <span class="overview-metric-label">Average Diagnostic Score</span>
+                            <strong id="overview-avg-score" class="overview-metric-val">—</strong>
+                            <small class="overview-metric-sub">Weighted 8-criteria heuristic</small>
+                        </div>
+                    </article>
+
+                    <article class="overview-metric-card">
+                        <div class="overview-metric-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <div class="overview-metric-data">
+                            <span class="overview-metric-label">Safety Gate Triggers</span>
+                            <strong id="overview-flag-rate" class="overview-metric-val">—</strong>
+                            <small class="overview-metric-sub">Protected by Human Review Gate</small>
+                        </div>
+                    </article>
+
+                    <article class="overview-metric-card">
+                        <div class="overview-metric-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        </div>
+                        <div class="overview-metric-data">
+                            <span class="overview-metric-label">Inference API Cost</span>
+                            <strong class="overview-metric-val text-success">$0.00 USD</strong>
+                            <small class="overview-metric-sub">100% Offline Ollama LLM</small>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="overview-actions-grid">
+                    <div class="overview-action-card">
+                        <div class="action-card-header">
+                            <span class="action-badge">New Run</span>
+                            <h4>Upload Research Manuscript</h4>
+                        </div>
+                        <p>Upload a new PDF or DOCX paper to create an isolated, reproducible evaluation run.</p>
+                        <a href="#/upload" class="btn btn-primary action-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload Paper
+                        </a>
+                    </div>
+
+                    <div class="overview-action-card">
+                        <div class="action-card-header">
+                            <span class="action-badge">Deep Dive</span>
+                            <h4>Inspect Analysis Studio</h4>
+                        </div>
+                        <p>Examine the criteria score breakdown, exact quote matches, and academic section detection.</p>
+                        <a href="#/analysis" id="overview-resume-btn" class="btn btn-secondary action-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h5l3 7 4-14 3 7h5"/></svg>
+                            Open Analysis Studio
+                        </a>
+                    </div>
+
+                    <div class="overview-action-card">
+                        <div class="action-card-header">
+                            <span class="action-badge">Archive</span>
+                            <h4>Browse Review Archive</h4>
+                        </div>
+                        <p>Search all past evaluated papers, compare provisional recommendations, and export reports.</p>
+                        <a href="#/reviews" class="btn btn-secondary action-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            Browse Past Reviews
+                        </a>
                     </div>
                 </div>
-                <div id="results-table-container">
-                    <table id="results-table" class="results-table">
-                        <thead>
-                            <tr>
-                                <th data-sort="paper">Paper</th>
-                                <th data-sort="display_date">Date</th>
-                                <th data-sort="extractor_model">Extractor</th>
-                                <th data-sort="synthesizer_model">Synthesizer</th>
-                                <th data-sort="overall_score">Score</th>
-                                <th data-sort="recommendation">Recommendation</th>
-                                <th data-sort="total_cost">Cost</th>
-                                <th data-sort="confidence">Confidence</th>
-                                <th>Review</th>
-                            </tr>
-                        </thead>
-                        <tbody id="results-tbody">
-                        </tbody>
-                    </table>
-                    <p id="no-results" class="placeholder-text">No reports yet</p>
+
+                <div class="overview-recent-section">
+                    <div class="overview-section-header">
+                        <h3>Recent Evaluations</h3>
+                        <a href="#/reviews" class="overview-link">View all past runs &rarr;</a>
+                    </div>
+                    <div class="recent-runs-table-wrap">
+                        <table class="recent-runs-table">
+                            <thead>
+                                <tr>
+                                    <th>Manuscript</th>
+                                    <th>Run</th>
+                                    <th>Upload Date</th>
+                                    <th>Diagnostic Score</th>
+                                    <th>System Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overview-recent-tbody">
+                                <!-- Populated dynamically by app.js -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </section>
+            </div>
+
+            <!-- PAGE 1B: DEDICATED PAPER OVERVIEW (Route #/paper-overview) -->
+            <div id="page-paper-overview" class="page-view" style="display:none" role="tabpanel" aria-label="Paper Overview">
+                <div class="paper-overview-header-card">
+                    <div class="paper-overview-header-left">
+                        <span class="paper-overview-eyebrow">DESCRIPTIVE MANUSCRIPT OVERVIEW</span>
+                        <h2 id="paper-overview-title" class="paper-overview-title">No Manuscript Selected</h2>
+                        <div id="paper-overview-meta-strip" class="paper-overview-meta-strip">
+                            <span class="meta-tag" id="po-meta-authors">Authors: —</span>
+                            <span class="meta-tag" id="po-meta-year">Year: —</span>
+                            <span class="meta-tag" id="po-meta-filename">File: —</span>
+                            <span class="meta-tag" id="po-meta-tokens">Tokens: —</span>
+                            <span class="meta-tag" id="po-meta-sha256" title="Verified Manuscript SHA-256">SHA: —</span>
+                        </div>
+                    </div>
+                    <div class="paper-overview-header-right">
+                        <div id="paper-overview-status-pill" class="paper-overview-status-pill status-pill-not-generated">
+                            <span class="status-indicator-dot"></span>
+                            <span id="po-status-text">Not Generated</span>
+                        </div>
+                        <button id="po-generate-btn" class="btn btn-primary" disabled>Generate Overview</button>
+                        <button id="po-regenerate-btn" class="btn btn-secondary" style="display:none">Regenerate</button>
+                    </div>
+                </div>
+
+                <!-- Progress / Loading Banner -->
+                <div id="paper-overview-progress-banner" class="paper-overview-banner banner-loading" style="display:none">
+                    <div class="spinner-small" aria-hidden="true"></div>
+                    <div class="banner-text">
+                        <strong id="po-progress-stage">Analyzing manuscript...</strong>
+                        <div class="progress-bar-wrap">
+                            <div id="po-progress-bar" class="progress-bar-fill" style="width: 15%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Banner -->
+                <div id="paper-overview-error-banner" class="paper-overview-banner banner-error" style="display:none">
+                    <span class="error-icon" aria-hidden="true">⚠️</span>
+                    <div class="banner-text">
+                        <strong id="po-error-title">Overview generation failed</strong>
+                        <span id="po-error-message">—</span>
+                    </div>
+                    <button id="po-retry-btn" class="btn btn-sm btn-secondary">Retry</button>
+                </div>
+
+                <!-- Stale Banner -->
+                <div id="paper-overview-stale-banner" class="paper-overview-banner banner-warning" style="display:none">
+                    <span class="warning-icon" aria-hidden="true">🔄</span>
+                    <div class="banner-text">
+                        <strong>Manuscript on disk changed</strong>
+                        <span>The source PDF content has changed since this overview was generated. Click regenerate to update.</span>
+                    </div>
+                </div>
+
+                <!-- Unselected Run Placeholder -->
+                <div id="paper-overview-unselected" class="paper-overview-empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <h3>Select a Manuscript Run</h3>
+                    <p>Choose an active or historical run from the dropdown above to view its descriptive Paper Overview.</p>
+                </div>
+
+                <!-- Abstract Quote Card -->
+                <div id="paper-overview-abstract-card" class="paper-overview-card abstract-card" style="display:none">
+                    <h3 class="card-section-title">Abstract</h3>
+                    <p id="po-abstract-text" class="abstract-body">—</p>
+                </div>
+
+                <!-- Structured 8-Section Grid -->
+                <div id="paper-overview-sections-grid" class="paper-overview-grid" style="display:none">
+                    <!-- 1. Research Problem -->
+                    <div class="po-section-card" id="po-card-research_problem">
+                        <div class="po-card-header">
+                            <h4>Research Problem &amp; Motivation</h4>
+                            <span class="po-badge" id="po-badge-research_problem">—</span>
+                        </div>
+                        <div class="po-card-body" id="po-body-research_problem">—</div>
+                        <div class="po-card-refs" id="po-refs-research_problem"></div>
+                    </div>
+
+                    <!-- 2. Research Objectives -->
+                    <div class="po-section-card" id="po-card-research_objectives">
+                        <div class="po-card-header">
+                            <h4>Research Objectives &amp; Questions</h4>
+                            <span class="po-badge" id="po-badge-research_objectives">—</span>
+                        </div>
+                        <div class="po-card-body" id="po-body-research_objectives">—</div>
+                        <div class="po-card-refs" id="po-refs-research_objectives"></div>
+                    </div>
+
+                    <!-- 3. Methodology -->
+                    <div class="po-section-card" id="po-card-methodology">
+                        <div class="po-card-header">
+                            <h4>Methodology &amp; Proposed Approach</h4>
+                            <span class="po-badge" id="po-badge-methodology">—</span>
+                        </div>
+                        <div class="po-card-body" id="po-body-methodology">—</div>
+                        <div class="po-card-refs" id="po-refs-methodology"></div>
+                    </div>
+
+                    <!-- 4. Main Contributions -->
+                    <div class="po-section-card" id="po-card-main_contributions">
+                        <div class="po-card-header">
+                            <h4>Main Contributions</h4>
+                            <span class="po-badge" id="po-badge-main_contributions">—</span>
+                        </div>
+                        <div class="po-card-body" id="po-body-main_contributions">—</div>
+                        <div class="po-card-refs" id="po-refs-main_contributions"></div>
+                    </div>
+
+                    <!-- 5. Experimental Setup -->
+                    <div class="po-section-card" id="po-card-experimental_setup">
+                        <div class="po-card-header">
+                            <h4>Experimental Setup &amp; Evaluation</h4>
+                            <span class="po-badge" id="po-badge-experimental_setup">—</span>
+                        </div>
+                        <div class="po-card-body" id="po-body-experimental_setup">—</div>
+                        <div class="po-card-refs" id="po-refs-experimental_setup"></div>
+                    </div>
+
+                    <!-- 6. Key Results -->
+                    <div class="po-section-card" id="po-card-key_results">
+                        <div class="po-card-header">
+                            <h4>Key Results &amp; Findings</h4>
+                            <span class="po-badge" id="po-badge-key_results">—</span>
+                        </div>
+                        <div class="po-card-body" id="po-body-key_results">—</div>
+                        <div class="po-card-refs" id="po-refs-key_results"></div>
+                    </div>
+
+                    <!-- 7. Limitations -->
+                    <div class="po-section-card" id="po-card-limitations">
+                        <div class="po-card-header">
+                            <h4>Author-Stated Limitations</h4>
+                            <span class="po-badge" id="po-badge-limitations">—</span>
+                        </div>
+                        <div class="po-card-body" id="po-body-limitations">—</div>
+                        <div class="po-card-refs" id="po-refs-limitations"></div>
+                    </div>
+
+                    <!-- 8. Future Work -->
+                    <div class="po-section-card" id="po-card-future_work">
+                        <div class="po-card-header">
+                            <h4>Author-Stated Future Work</h4>
+                            <span class="po-badge" id="po-badge-future_work">—</span>
+                        </div>
+                        <div class="po-card-body" id="po-body-future_work">—</div>
+                        <div class="po-card-refs" id="po-refs-future_work"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE 2: UPLOAD (Route #/upload) -->
+            <div id="page-upload" class="page-view" style="display:none" role="tabpanel" aria-label="Upload Manuscript">
+                <section class="upload-panel">
+                    <div class="upload-panel-heading">
+                        <div class="upload-icon" aria-hidden="true">↑</div>
+                        <div>
+                            <p class="upload-eyebrow">NEW REVIEW RUN</p>
+                            <h2>Review a Research Paper</h2>
+                            <p class="upload-description">Upload your manuscript to create an isolated review run. Existing reports stay safe.</p>
+                        </div>
+                    </div>
+                    <form id="upload-form" class="upload-form">
+                        <label class="file-dropzone" for="paper-file">
+                            <span class="file-dropzone-icon" aria-hidden="true">↥</span>
+                            <span class="file-dropzone-title">Choose a research paper</span>
+                            <span class="file-dropzone-hint">PDF or DOCX · Max 20 MB · Select a file from your device</span>
+                            <span id="selected-file-name" class="selected-file-name">No file selected</span>
+                            <input
+                                id="paper-file"
+                                type="file"
+                                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                multiple
+                                required
+                            >
+                        </label>
+                        <div id="file-confirmation-chip" class="file-confirmation-chip" style="display:none">
+                            <span class="file-chip-icon">📄</span>
+                            <span id="file-chip-name" class="file-chip-name"></span>
+                            <span id="file-chip-size" class="file-chip-size"></span>
+                            <button type="button" id="file-chip-clear" class="file-chip-clear" title="Clear selected file">&times;</button>
+                        </div>
+
+                        <!-- Multi-file Selection Container -->
+                        <div id="multi-file-summary" class="multi-file-summary" style="display:none">
+                            <div class="multi-file-header">
+                                <span id="multi-file-count" class="multi-file-count">0 papers selected</span>
+                                <button type="button" id="multi-file-clear" class="btn btn-secondary btn-sm">Clear Selection</button>
+                            </div>
+                            <div id="multi-file-list" class="multi-file-list"></div>
+                        </div>
+
+                        <!-- Duplicate Manuscript Policy Selector (Phase 3 Requirement 7) -->
+                        <div class="duplicate-policy-box" style="margin-top: 1rem; margin-bottom: 0.5rem;">
+                            <label for="duplicate-policy-select" style="display:block; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">
+                                Duplicate Manuscript Handling:
+                            </label>
+                            <select id="duplicate-policy-select" class="select-input" style="width: 100%;">
+                                <option value="skip" selected>Skip Duplicates (Recommended — reuses verified analysis, zero wait)</option>
+                                <option value="force_new">Force New Analysis (Create clean isolated run for identical files)</option>
+                            </select>
+                        </div>
+
+                        <!-- Duplicate Detection Prompt Card (Rule 5) -->
+                        <div id="duplicate-prompt-card" class="duplicate-prompt-card" style="display:none" role="alert">
+                            <div class="duplicate-card-icon" aria-hidden="true">⚠️</div>
+                            <div class="duplicate-card-body">
+                                <h4 class="duplicate-title">Duplicate Manuscript Detected</h4>
+                                <p id="duplicate-desc" class="duplicate-desc">This exact manuscript was already analyzed in a previous run.</p>
+                                <div class="duplicate-card-actions">
+                                    <button type="button" id="dup-btn-open" class="btn btn-primary btn-sm">
+                                        Open Existing Review (Zero Wait)
+                                    </button>
+                                    <button type="button" id="dup-btn-new" class="btn btn-secondary btn-sm">
+                                        Run New Review (Clean Run)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preset / Execution Info Card -->
+                        <div class="upload-preset-box">
+                            <div class="preset-item">
+                                <span class="preset-label">Execution Engine:</span>
+                                <strong>Standard Review (8 Evaluated Criteria · 100% Weight)</strong>
+                            </div>
+                            <div class="preset-item">
+                                <span class="preset-label">Inference Model:</span>
+                                <strong>Ollama · llama3.2:3b (Offline local · $0.00 cost)</strong>
+                            </div>
+                            <div class="preset-item">
+                                <span class="preset-label">Safety Gate:</span>
+                                <strong>Quotation match verification + Human Review Flagging</strong>
+                            </div>
+                        </div>
+
+                        <button id="upload-btn" class="btn btn-primary upload-submit" type="submit">
+                            <span aria-hidden="true">↑</span> Upload Paper
+                        </button>
+                    </form>
+                    <p id="upload-status" class="upload-status" role="status" aria-live="polite">
+                        Your existing reports will be preserved.
+                    </p>
+                </section>
+
+                <!-- Staged Batch Queue Section on Upload View (Phase 3) -->
+                <section id="upload-batch-section" class="batch-queue-section" style="display:none; margin-top: 2rem;">
+                    <div class="batch-panel-header">
+                        <div class="batch-panel-title-wrap">
+                            <span class="batch-panel-eyebrow">STAGED BATCH QUEUE</span>
+                            <h3>Current Batch Queue</h3>
+                            <p class="batch-panel-subtitle">Fault-isolated multi-paper processing with atomic disk persistence and retry.</p>
+                        </div>
+                        <div class="batch-queue-actions">
+                            <button type="button" id="btn-upload-batch-resume" class="btn btn-primary btn-sm">Resume Batch</button>
+                            <button type="button" id="btn-upload-batch-stop" class="btn btn-danger btn-sm">Stop Batch</button>
+                            <button type="button" id="btn-upload-batch-retry" class="btn btn-secondary btn-sm">Retry Failed</button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="batch-queue-table" aria-label="Upload Batch Queue Items">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">#</th>
+                                    <th>Manuscript / Title</th>
+                                    <th>Run ID</th>
+                                    <th>Status</th>
+                                    <th>Stage & Progress</th>
+                                    <th>Score / Recommendation</th>
+                                    <th>Notes / Error</th>
+                                    <th style="width: 100px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="upload-batch-tbody">
+                                <tr><td colspan="8" class="placeholder-text" style="text-align: center; padding: 1.5rem;">No manuscripts staged in queue.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- PAGE 3: ANALYSIS STUDIO (Route #/analysis) -->
+            <div id="page-analysis" class="page-view" style="display:none" role="tabpanel" aria-label="Analysis Studio">
+                <!-- Empty state when no run is selected -->
+                <div id="analysis-empty-state" class="analysis-empty-state" style="display:none">
+                    <div class="empty-state-icon" aria-hidden="true">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="14" r="3"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
+                    </div>
+                    <h3>No Research Paper Selected</h3>
+                    <p>Upload a manuscript or select a past review to view metric meters, criteria breakdown, and quote verification.</p>
+                    <div class="empty-state-actions">
+                        <a href="#/upload" class="btn btn-primary">Upload Paper</a>
+                        <a href="#/reviews" class="btn btn-secondary">Browse Past Reviews</a>
+                    </div>
+                </div>
+
+                <div id="analysis-run-container">
+                    <!-- Paper Identity Hero Header (8.1) -->
+                    <div class="analysis-identity-header">
+                        <div class="identity-header-left">
+                            <p class="identity-eyebrow">RESEARCH INTELLIGENCE ANALYSIS</p>
+                            <h2 id="analysis-paper-original-name" class="identity-original-name">Loading manuscript...</h2>
+                            <div class="identity-meta-strip">
+                                <span id="analysis-paper-title" class="identity-paper-title"></span>
+                                <span class="identity-separator">·</span>
+                                <span id="analysis-paper-run-label" class="identity-badge run-badge">Run 1 of 1</span>
+                                <span class="identity-separator">·</span>
+                                <span id="analysis-paper-date" class="identity-date"></span>
+                                <span class="identity-separator">·</span>
+                                <span id="analysis-paper-status" class="identity-badge status-badge">Ready</span>
+                            </div>
+                        </div>
+                        <div class="identity-header-right">
+                            <details class="tech-disclosure">
+                                <summary class="tech-summary">Technical details</summary>
+                                <div id="analysis-tech-body" class="tech-body">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+
+                    <!-- Ready for Analysis State Card (Unanalyzed Run) -->
+                    <section id="analysis-ready-card" class="analysis-ready-card" style="display:none" aria-live="polite">
+                        <div class="ready-card-header">
+                            <div class="ready-card-badge">
+                                <span class="ready-status-dot" aria-hidden="true"></span>
+                                <span>Ready for Analysis</span>
+                            </div>
+                            <span class="ready-card-pill">Zero Inference Runs Recorded</span>
+                        </div>
+                        <div class="ready-card-body">
+                            <h3 class="ready-card-headline">Manuscript Ingested &amp; Prepared</h3>
+                            <p class="ready-card-subtext">
+                                The manuscript has been safely isolated in an independent evaluation sandbox. All scoring criteria and pipeline prompts are staged and awaiting your command.
+                            </p>
+                            <div class="ready-card-meta-grid">
+                                <div class="ready-meta-box">
+                                    <span class="ready-meta-label">Original Manuscript</span>
+                                    <span id="ready-card-filename" class="ready-meta-value">—</span>
+                                </div>
+                                <div class="ready-meta-box">
+                                    <span class="ready-meta-label">Evaluation Run</span>
+                                    <span id="ready-card-run-label" class="ready-meta-value">—</span>
+                                </div>
+                                <div class="ready-meta-box">
+                                    <span class="ready-meta-label">Staged At</span>
+                                    <span id="ready-card-date" class="ready-meta-value">—</span>
+                                </div>
+                                <div class="ready-meta-box" id="ready-card-title-box" style="display:none">
+                                    <span class="ready-meta-label">Extracted Title</span>
+                                    <span id="ready-card-paper-title" class="ready-meta-value">—</span>
+                                </div>
+                            </div>
+                            <div class="ready-card-actions">
+                                <div class="ready-action-controls">
+                                    <label for="analysis-mode-selector" class="ready-mode-label">Review Mode:</label>
+                                    <select id="analysis-mode-selector" class="select-input ready-mode-select">
+                                        <option value="standard">Standard Review (Offline Local Inference)</option>
+                                        <option value="literature">Literature-Grounded Review</option>
+                                    </select>
+                                    <button type="button" id="analysis-start-btn" class="btn btn-primary btn-start-analysis">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                        <span>Start Analysis</span>
+                                    </button>
+                                </div>
+                                <small class="ready-action-caption">
+                                    Uses local Ollama model (<code>llama3.2:3b</code>). Review results and evidence grounding will populate below automatically upon completion.
+                                </small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Data-driven summary for the selected run's latest review -->
+                    <section id="review-dashboard" class="review-dashboard" hidden aria-live="polite">
+                        <div class="review-dashboard-heading">
+                            <div class="review-dashboard-title">
+                                <p class="dashboard-eyebrow">REVIEW DASHBOARD</p>
+                                <h2 id="dashboard-paper-title">Review summary</h2>
+                                <p id="dashboard-paper-meta" class="dashboard-paper-meta"></p>
+                            </div>
+                            <div class="dashboard-review-control">
+                                <label for="dashboard-review-select">Report</label>
+                                <select id="dashboard-review-select" class="select-input" aria-label="Choose a review report"></select>
+                                <button type="button" id="dashboard-export-pdf-btn" class="btn btn-sm btn-primary" title="Export review report as formatted PDF">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                    Export PDF
+                                </button>
+                                <button type="button" id="dashboard-export-btn" class="btn btn-sm btn-export" title="Export currently selected review report as Markdown">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Export MD
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Fast section jump navigation bar -->
+                        <nav class="dashboard-jump-bar" aria-label="Quick section navigation">
+                            <span class="jump-bar-label">Sections:</span>
+                            <a href="#dashboard-state-banner" class="jump-pill">Status</a>
+                            <a href="#dashboard-metric-grid" class="jump-pill">Key Metrics</a>
+                            <a href="#dashboard-warnings" class="jump-pill">Warnings</a>
+                            <a href="#dashboard-executive-card" class="jump-pill">Executive Summary</a>
+                            <a href="#dashboard-criteria-card" class="jump-pill">Criteria Deep Dive</a>
+                            <a href="#dashboard-score-card" class="jump-pill">Score Breakdown</a>
+                            <a href="#dashboard-evidence-card" class="jump-pill">Quote Verification</a>
+                            <a href="#/reviews" class="jump-pill">Past Reviews Archive &rarr;</a>
+                        </nav>
+
+                        <div id="dashboard-state-banner" class="dashboard-state-banner">
+                            <span id="dashboard-state-icon" class="dashboard-state-icon" aria-hidden="true">!</span>
+                            <div>
+                                <h3 id="dashboard-state-title"></h3>
+                                <p id="dashboard-state-description"></p>
+                            </div>
+                        </div>
+
+                        <!-- 3 Distinct Decision Indicators + Quote Verification (Invariant 1 & 5 compliant) -->
+                        <div id="dashboard-metric-grid" class="review-metric-grid">
+                            <!-- Indicator 1: Overall Diagnostic Score -->
+                            <article class="review-metric-card score-metric-card" aria-labelledby="metric-score-label">
+                                <div class="review-metric-heading">
+                                    <span id="metric-score-label">Diagnostic Score</span>
+                                    <span class="metric-badge heuristic-badge">Heuristic</span>
+                                </div>
+                                <div class="metric-value-wrap">
+                                    <strong id="dashboard-score" class="review-metric-value">—</strong>
+                                </div>
+                                <div class="metric-track" aria-hidden="true"><span id="dashboard-score-fill"></span></div>
+                                <small class="metric-caption">Weighted algorithmic diagnostic &middot; Not a human peer review</small>
+                            </article>
+
+                            <!-- Indicator 2: Provisional Recommendation -->
+                            <article class="review-metric-card recommendation-metric-card" aria-labelledby="metric-rec-label">
+                                <div class="review-metric-heading">
+                                    <span id="metric-rec-label">Provisional Recommendation</span>
+                                    <span class="metric-badge provisional-badge">Model Output</span>
+                                </div>
+                                <div class="metric-value-wrap">
+                                    <strong id="dashboard-recommendation" class="review-metric-label">—</strong>
+                                </div>
+                                <p id="dashboard-provisional" class="metric-subvalue"></p>
+                                <small class="metric-caption">Initial model heuristic prior to verification safety gate</small>
+                            </article>
+
+                            <!-- Indicator 3: Final System Status -->
+                            <article class="review-metric-card status-metric-card" aria-labelledby="metric-status-label">
+                                <div class="review-metric-heading">
+                                    <span id="metric-status-label">Final System Status</span>
+                                    <span class="metric-badge gate-badge">Safety Gate</span>
+                                </div>
+                                <div class="metric-value-wrap">
+                                    <strong id="dashboard-status" class="review-metric-label">—</strong>
+                                </div>
+                                <p id="dashboard-status-detail" class="metric-subvalue"></p>
+                                <small class="metric-caption">Enforces evidence coverage &amp; source quotation verification</small>
+                            </article>
+
+                            <!-- Indicator 4: Source Quotation Verification -->
+                            <article class="review-metric-card evidence-metric-card" aria-labelledby="metric-evidence-label">
+                                <div class="review-metric-heading">
+                                    <span id="metric-evidence-label">Quotation Verification</span>
+                                    <span class="metric-badge verification-badge">Source Match</span>
+                                </div>
+                                <div class="metric-value-wrap">
+                                    <strong id="dashboard-evidence-count" class="review-metric-value">—</strong>
+                                </div>
+                                <p id="dashboard-evidence-caption" class="metric-subvalue"></p>
+                                <div class="evidence-meter" aria-hidden="true">
+                                    <span id="dashboard-verified-meter"></span>
+                                    <span id="dashboard-unverified-meter"></span>
+                                </div>
+                                <small class="metric-caption">Quote verified in source text &middot; Rubric alignment requires human review</small>
+                            </article>
+                        </div>
+
+                        <section id="dashboard-warnings" class="dashboard-warnings" hidden>
+                            <h3><span aria-hidden="true">!</span> Review warnings</h3>
+                            <ul id="dashboard-warning-list"></ul>
+                        </section>
+
+                        <section id="dashboard-executive-card" class="dashboard-card dashboard-executive-card" hidden>
+                            <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Synthesis</p><h3>Executive Summary</h3></div></div>
+                            <p id="dashboard-executive-summary"></p>
+                        </section>
+
+                        <div class="review-analysis-grid">
+                            <section id="dashboard-criteria-card" class="dashboard-card criterion-card">
+                                <div class="dashboard-card-heading">
+                                    <div><p class="dashboard-eyebrow">Criterion-level evidence</p><h3>Criterion-wise Evaluation</h3></div>
+                                    <span id="dashboard-criteria-count" class="subtle-count"></span>
+                                </div>
+                                <div class="criterion-table-wrap">
+                                    <table class="criterion-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="col-index">#</th>
+                                                <th class="col-criterion">Criterion</th>
+                                                <th class="col-score">Score &amp; Weight</th>
+                                                <th class="col-quotes">Source Quotes</th>
+                                                <th class="col-assessment">Synthesis Assessment</th>
+                                                <th class="col-status">Quotation Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="dashboard-criteria-body"></tbody>
+                                    </table>
+                                </div>
+                                <p id="dashboard-criteria-empty" class="dashboard-empty" hidden>Criterion-level scores are not available in this report.</p>
+                            </section>
+
+                            <div class="dashboard-side-stack">
+                                <section id="dashboard-score-card" class="dashboard-card score-breakdown-card">
+                                    <div class="dashboard-card-heading">
+                                        <div><p class="dashboard-eyebrow">Weighted contribution</p><h3>Score Breakdown</h3></div>
+                                    </div>
+                                    <div id="dashboard-score-breakdown" class="score-breakdown-content">
+                                        <div id="dashboard-score-donut" class="score-donut" aria-label="Weighted score contribution chart">
+                                            <div><strong id="dashboard-donut-score">—</strong><span>/ 100</span></div>
+                                        </div>
+                                        <ul id="dashboard-score-legend" class="score-legend"></ul>
+                                    </div>
+                                    <p id="dashboard-score-breakdown-empty" class="dashboard-empty" hidden>Weighted criterion scores are not available in this report.</p>
+                                </section>
+
+                                <section id="dashboard-evidence-card" class="dashboard-card evidence-chart-card">
+                                    <div class="dashboard-card-heading">
+                                        <div><p class="dashboard-eyebrow">Source matching</p><h3>Evidence Verification</h3></div>
+                                        <strong id="dashboard-evidence-percent" class="evidence-percent"></strong>
+                                    </div>
+                                    <div class="evidence-chart-rows">
+                                        <div class="evidence-chart-row"><span class="evidence-legend-dot verified-dot"></span><span>Verified quotations</span><strong id="dashboard-verified-count">—</strong></div>
+                                        <div class="evidence-chart-track"><span id="dashboard-verified-chart"></span></div>
+                                        <div class="evidence-chart-row"><span class="evidence-legend-dot unverified-dot"></span><span>Unverified quotations</span><strong id="dashboard-unverified-count">—</strong></div>
+                                        <div class="evidence-chart-track"><span id="dashboard-unverified-chart"></span></div>
+                                    </div>
+                                    <p class="chart-note">Only source-matched quotations count as verified evidence.</p>
+                                    <div class="evidence-card-actions">
+                                        <button type="button" id="dashboard-view-evidence-btn" class="secondary-btn evidence-inspect-btn">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                            Inspect Grounding Matrix
+                                        </button>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+
+                        <div class="review-notes-grid">
+                            <section id="dashboard-strengths-card" class="dashboard-card review-notes-card strengths-card" hidden>
+                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Review synthesis</p><h3>Key Strengths</h3></div><span class="notes-icon" aria-hidden="true">↑</span></div>
+                                <ul id="dashboard-strengths-list" class="review-notes-list"></ul>
+                            </section>
+                            <section id="dashboard-concerns-card" class="dashboard-card review-notes-card concerns-card" hidden>
+                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Review synthesis</p><h3>Concerns and Limitations</h3></div><span class="notes-icon" aria-hidden="true">!</span></div>
+                                <ul id="dashboard-concerns-list" class="review-notes-list"></ul>
+                            </section>
+                            <section id="dashboard-suggestions-card" class="dashboard-card review-notes-card suggestions-card" hidden>
+                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Next steps</p><h3>Suggestions for Improvement</h3></div><span class="notes-icon" aria-hidden="true">↗</span></div>
+                                <ol id="dashboard-suggestions-list" class="review-notes-list"></ol>
+                            </section>
+                        </div>
+                    </section>
+
+                    <!-- Progress Panel -->
+                    <section class="progress-panel">
+                        <h2>Progress</h2>
+                        <div id="progress-bar-container" class="progress-bar-container">
+                            <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-stats">
+                            <span id="progress-text">No active run</span>
+                            <span id="progress-eta"></span>
+                        </div>
+                        <div class="stage-indicators">
+                            <div class="stage-item" id="stage-ingest">
+                                <span class="stage-dot"></span>
+                                <span>Ingestion</span>
+                            </div>
+                            <div class="stage-item" id="stage-extraction">
+                                <span class="stage-dot"></span>
+                                <span>Extraction</span>
+                            </div>
+                            <div class="stage-item" id="stage-synthesis">
+                                <span class="stage-dot"></span>
+                                <span>Synthesis</span>
+                            </div>
+                            <div class="stage-item" id="stage-output">
+                                <span class="stage-dot"></span>
+                                <span>Output</span>
+                            </div>
+                        </div>
+                        <div class="cost-time-tracker">
+                            <div class="tracker-item">
+                                <span class="tracker-label">Cost</span>
+                                <span id="cost-display" class="tracker-value">$0.00</span>
+                            </div>
+                            <div class="tracker-item">
+                                <span class="tracker-label">Elapsed</span>
+                                <span id="elapsed-display" class="tracker-value">0s</span>
+                            </div>
+                            <div class="tracker-item">
+                                <span class="tracker-label">Current Paper</span>
+                                <span id="current-paper-display" class="tracker-value">-</span>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- PAGE 4: PAST REVIEWS (Route #/reviews) -->
+            <div id="page-reviews" class="page-view" style="display:none" role="tabpanel" aria-label="Review Archive">
+                <section class="results-panel">
+                    <div class="results-header">
+                        <div>
+                            <p class="dashboard-eyebrow">HISTORICAL REPOSITORIES</p>
+                            <h2>Review Archive &amp; Evaluations</h2>
+                        </div>
+                        <div class="results-header-actions">
+                            <input type="search" id="reviews-search-input" class="search-input" placeholder="Search by paper title or filename..." aria-label="Filter reviews">
+                            <select id="reviews-status-filter" class="select-input" aria-label="Filter by review status">
+                                <option value="">All Statuses</option>
+                                <option value="Needs Manual Review">Needs Manual Review</option>
+                                <option value="Accept">Accept</option>
+                                <option value="Revise and Resubmit">Revise and Resubmit</option>
+                                <option value="Reject">Reject</option>
+                            </select>
+                            <button id="refresh-reports-btn" class="btn btn-sm btn-secondary">Refresh</button>
+                            <button id="export-csv-btn" class="btn btn-sm btn-secondary" title="Export latest consolidated CSV report">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Export CSV
+                            </button>
+                            <button id="btn-view-trash" class="btn btn-sm btn-secondary btn-trash-toggle" title="View and restore soft-deleted review runs">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                Trash (<span id="trash-count-badge">0</span>)
+                            </button>
+                            <button id="judge-btn" class="btn btn-sm btn-warning" disabled>Compare &amp; Judge</button>
+                            <button id="view-verdicts-btn" class="btn btn-sm btn-secondary" style="display:none">View Verdicts</button>
+                        </div>
+                    </div>
+                    <div id="results-table-container">
+                        <table id="results-table" class="results-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="paper">Paper Manuscript</th>
+                                    <th data-sort="display_date">Upload Date</th>
+                                    <th data-sort="extractor_model">Extractor</th>
+                                    <th data-sort="synthesizer_model">Synthesizer</th>
+                                    <th data-sort="overall_score">Score</th>
+                                    <th data-sort="recommendation">System Recommendation</th>
+                                    <th data-sort="review_status">Status</th>
+                                    <th data-sort="total_cost">Cost</th>
+                                    <th data-sort="confidence">Heuristic Reliability</th>
+                                    <th>Review</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-tbody">
+                            </tbody>
+                        </table>
+                        <p id="no-results" class="placeholder-text">No reports yet</p>
+                    </div>
+                </section>
+
+                <!-- Batch Progress & Queue Management (Phase 3) -->
+                <section id="batch-panel" class="batch-panel" style="display:none">
+                    <div class="batch-panel-header">
+                        <div class="batch-panel-title-wrap">
+                            <span class="batch-panel-eyebrow">BATCH PROCESSING RUNNER</span>
+                            <h2>Batch Execution &amp; Queue</h2>
+                            <p class="batch-panel-subtitle">Fault-isolated multi-paper processing with atomic disk persistence and retry.</p>
+                        </div>
+                        <div class="batch-queue-actions">
+                            <button type="button" id="btn-batch-resume" class="btn btn-primary btn-sm">Resume Queue</button>
+                            <button type="button" id="btn-batch-cancel" class="btn btn-danger btn-sm">Stop Batch</button>
+                            <button type="button" id="btn-batch-retry-failed" class="btn btn-secondary btn-sm">Retry Failed &amp; Interrupted</button>
+                            <button type="button" id="btn-batch-clear" class="btn btn-secondary btn-sm">Clear Finished</button>
+                        </div>
+                    </div>
+                    <!-- Batch Stats Grid -->
+                    <div class="batch-stats-grid">
+                        <div class="batch-stat-card"><span class="stat-num" id="batch-stat-total">0</span><span class="stat-lbl">Total Items</span></div>
+                        <div class="batch-stat-card"><span class="stat-num" id="batch-stat-queued">0</span><span class="stat-lbl">Queued</span></div>
+                        <div class="batch-stat-card stat-running"><span class="stat-num" id="batch-stat-running">0</span><span class="stat-lbl">Running</span></div>
+                        <div class="batch-stat-card stat-completed"><span class="stat-num" id="batch-stat-completed">0</span><span class="stat-lbl">Completed</span></div>
+                        <div class="batch-stat-card stat-failed"><span class="stat-num" id="batch-stat-failed">0</span><span class="stat-lbl">Failed</span></div>
+                        <div class="batch-stat-card stat-interrupted"><span class="stat-num" id="batch-stat-interrupted">0</span><span class="stat-lbl">Interrupted</span></div>
+                        <div class="batch-stat-card stat-skipped"><span class="stat-num" id="batch-stat-skipped">0</span><span class="stat-lbl">Skipped</span></div>
+                    </div>
+                    <div class="progress-bar-container" style="margin: 1rem 0;">
+                        <div id="batch-progress-bar" class="progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="batch-status" style="margin-bottom: 1rem;">
+                        <span id="batch-text">0/0 directories</span>
+                        <span id="batch-current"></span>
+                    </div>
+                    <div id="batch-dirs-list" class="batch-dirs-list" style="display:none"></div>
+                    <div class="table-container">
+                        <table class="batch-queue-table" aria-label="Batch Queue Items">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">#</th>
+                                    <th>Manuscript / Title</th>
+                                    <th>Run Directory</th>
+                                    <th>Status</th>
+                                    <th>Stage &amp; Progress</th>
+                                    <th>Score &amp; Recommendation</th>
+                                    <th>Notes / Error</th>
+                                    <th style="width: 100px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-queue-tbody">
+                                <tr><td colspan="8" class="placeholder-text" style="text-align: center; padding: 2rem;">No manuscripts currently staged in batch queue.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
 
             <!-- Review Viewer Modal -->
             <div id="review-modal" class="modal" style="display:none">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h3 id="review-modal-title">Review</h3>
-                        <button class="modal-close" id="review-modal-close">&times;</button>
+                        <div class="modal-header-top">
+                            <div class="modal-title-wrap">
+                                <p class="modal-eyebrow">RESEARCH INTELLIGENCE AUDIT</p>
+                                <h3 id="review-modal-title">Review</h3>
+                            </div>
+                            <div class="modal-header-actions">
+                                <div class="modal-export-group" role="toolbar" aria-label="Export review reports">
+                                    <button type="button" id="btn-export-pdf" class="btn btn-sm btn-primary" title="Download formatted PDF review report">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                        <span>PDF</span>
+                                    </button>
+                                    <button type="button" id="btn-export-markdown" class="btn btn-sm btn-export" title="Download raw Markdown review report">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        <span>Markdown</span>
+                                    </button>
+                                    <button type="button" id="btn-export-json" class="btn btn-sm btn-export" title="Download comprehensive Research Intelligence Audit JSON package">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                        <span>Audit JSON</span>
+                                    </button>
+                                    <button type="button" id="btn-print-review" class="btn btn-sm btn-export" title="Print review or save as PDF">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                        <span>Print</span>
+                                    </button>
+                                </div>
+                                <button class="modal-close" id="review-modal-close" title="Close review viewer">&times;</button>
+                            </div>
+                        </div>
+                        <nav class="modal-subnav" aria-label="Review document sections">
+                            <span class="subnav-label">Sections:</span>
+                            <button type="button" class="modal-nav-pill active" data-target="review-modal-body">Report</button>
+                            <button type="button" class="modal-nav-pill" data-target="evidence-panel">Grounding Matrix</button>
+                            <button type="button" class="modal-nav-pill" data-target="section-analysis-panel">Section Analysis</button>
+                            <button type="button" class="modal-nav-pill" data-target="quality-analysis-panel">Supplemental Quality</button>
+                            <button type="button" class="modal-nav-pill" data-target="audit-provenance-panel">Audit &amp; Provenance</button>
+                        </nav>
                     </div>
                     <div id="review-modal-body" class="review-body"></div>
+                    <section id="evidence-panel" class="evidence-panel">
+                        <div class="evidence-panel-header">
+                            <div>
+                                <p class="dashboard-eyebrow">Manuscript Grounding Matrix</p>
+                                <h4>Evidence Verification & Quotation Grounding</h4>
+                            </div>
+                            <span id="evidence-summary" class="evidence-summary-badge">Evidence not loaded</span>
+                        </div>
+                        <div class="evidence-grounding-disclaimer" role="note">
+                            <div class="disclaimer-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            </div>
+                            <div class="disclaimer-text">
+                                <strong>Source Verification vs. Rubric Relevance (Invariant 5)</strong>
+                                <p>A <em>Verified</em> status strictly confirms that the exact quotation was located verbatim within the source PDF manuscript. Exact matching does <strong>not</strong> prove semantic relevance to the evaluated criterion, which remains an AI extraction claim subject to human peer review.</p>
+                            </div>
+                        </div>
+                        <div class="evidence-filter-bar" id="evidence-filter-bar" role="toolbar" aria-label="Filter evidence quotations">
+                            <span class="filter-label">Filter:</span>
+                            <button type="button" class="evidence-filter-btn active" data-filter="all">All Quotations</button>
+                            <button type="button" class="evidence-filter-btn" data-filter="verified">Verified in Source</button>
+                            <button type="button" class="evidence-filter-btn" data-filter="unverified">Unverified</button>
+                        </div>
+                        <div id="evidence-list">
+                            <p class="placeholder-text">
+                                Evidence verification data will appear here when available.
+                            </p>
+                        </div>
+                    </section>
+                    <section id="section-analysis-panel" class="evidence-panel">
+                        <div class="evidence-panel-header">
+                            <div>
+                                <p class="dashboard-eyebrow">Document Structure Mapping</p>
+                                <h4>Academic Section Analysis</h4>
+                            </div>
+                            <span id="section-analysis-summary" class="evidence-summary-badge">Not loaded</span>
+                        </div>
+                        <div class="section-analysis-disclaimer" role="note">
+                            <div class="disclaimer-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            </div>
+                            <div class="disclaimer-text">
+                                <strong>Rule-Based Heading Detection Scope</strong>
+                                <p>Section detection scans for explicit standard headings in the extracted text. <em>"Heading not detected"</em> indicates that no explicit matching heading was detected; it does <strong>not</strong> imply that a required section is absent, as papers frequently integrate related topics under broader headings (e.g. Related Work inside Introduction).</p>
+                            </div>
+                        </div>
+                        <div id="section-analysis-list">
+                            <p class="placeholder-text">
+                                Academic section detection results will appear here when available.
+                            </p>
+                        </div>
+                    </section>
+                    <section id="quality-analysis-panel" class="evidence-panel">
+                        <div class="evidence-panel-header">
+                            <div>
+                                <p class="dashboard-eyebrow">Manuscript Integrity Auditing</p>
+                                <h4>Supplemental Quality Analysis</h4>
+                            </div>
+                            <span id="quality-analysis-summary" class="evidence-summary-badge">Not loaded</span>
+                        </div>
+                        <div class="quality-analysis-disclaimer" role="note">
+                            <div class="disclaimer-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            </div>
+                            <div class="disclaimer-text">
+                                <strong>Heuristic Quality Diagnostics (Human Verification Required)</strong>
+                                <p>Citation matching, document element counts, and cross-section numeric comparisons are heuristic diagnostic aids. Potential inconsistencies flagged across sections (e.g. baseline vs. full model training times) are exploratory prompts designed to assist human peer review, not confirmed paper errors.</p>
+                            </div>
+                        </div>
+                        <div id="quality-analysis-list">
+                            <p class="placeholder-text">
+                                Citation, document structure and consistency checks will appear here when available.
+                            </p>
+                        </div>
+                    </section>
+                    <section id="audit-provenance-panel" class="evidence-panel">
+                        <div class="evidence-panel-header">
+                            <div>
+                                <p class="dashboard-eyebrow">Pipeline Reproducibility & Governance</p>
+                                <h4>System Audit &amp; Verification Provenance</h4>
+                            </div>
+                            <span id="audit-provenance-badge" class="evidence-summary-badge">Audit Verified</span>
+                        </div>
+                        <div class="audit-grid">
+                            <div class="audit-tile">
+                                <span class="audit-tile-label">Inference Models</span>
+                                <div class="audit-tile-value" id="audit-models-val">—</div>
+                                <small class="audit-tile-meta" id="audit-provider-meta">Offline local Ollama inference</small>
+                            </div>
+                            <div class="audit-tile">
+                                <span class="audit-tile-label">Execution Accounting</span>
+                                <div class="audit-tile-value" id="audit-cost-val">$0.0000 USD</div>
+                                <small class="audit-tile-meta" id="audit-time-val">—</small>
+                            </div>
+                            <div class="audit-tile">
+                                <span class="audit-tile-label">Governance Safety Gate</span>
+                                <div class="audit-tile-value" id="audit-status-val">—</div>
+                                <small class="audit-tile-meta" id="audit-rec-meta">—</small>
+                            </div>
+                            <div class="audit-tile">
+                                <span class="audit-tile-label">Quotation Grounding</span>
+                                <div class="audit-tile-value" id="audit-evidence-val">—</div>
+                                <small class="audit-tile-meta">Exact match in source manuscript</small>
+                            </div>
+                        </div>
+                        <div class="audit-provenance-box">
+                            <h5>Underlying File Artifacts (Reproducibility Trails)</h5>
+                            <div class="artifact-paths-list" id="audit-artifact-paths">
+                                <!-- Populated dynamically by app.js -->
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
 
@@ -223,8 +1181,42 @@
                     <div id="judge-modal-body" class="review-body"></div>
                 </div>
             </div>
+
+            <!-- Deleted Reviews (Trash) Recovery Modal -->
+            <div id="trash-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="trash-modal-title">
+                <div class="modal-content trash-modal-content">
+                    <div class="modal-header">
+                        <div class="modal-header-title">
+                            <span class="trash-modal-icon" aria-hidden="true">🗑️</span>
+                            <h3 id="trash-modal-title">Deleted Reviews (Trash)</h3>
+                        </div>
+                        <button class="modal-close" id="trash-modal-close" aria-label="Close trash modal">&times;</button>
+                    </div>
+                    <div class="trash-modal-body">
+                        <p class="trash-modal-notice">
+                            Soft-deleted runs are safely preserved on disk. Restoring a run immediately returns it to the Past Reviews archive and consolidated exports.
+                        </p>
+                        <div class="trash-table-wrap">
+                            <table class="results-table trash-table">
+                                <thead>
+                                    <tr>
+                                        <th>Paper Manuscript</th>
+                                        <th>Run Directory</th>
+                                        <th>Score</th>
+                                        <th>Deleted At</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trash-tbody">
+                                </tbody>
+                            </table>
+                            <p id="no-trash" class="placeholder-text" style="display:none">Trash is empty. No deleted runs.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </main>
 
     <!-- Log Panel -->
     <section class="log-panel">

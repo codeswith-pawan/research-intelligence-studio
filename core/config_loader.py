@@ -5,12 +5,12 @@ from dotenv import load_dotenv
 from typing import Dict, Any, List, Optional
 
 MODEL_DEFAULTS = {
-    "extractor_provider": "openai",
-    "extractor_model": "gpt-5.4-nano",
-    "synthesizer_provider": "openai",
-    "synthesizer_model": "gpt-5.4-nano",
-    "judge_provider": "deepseek",
-    "judge_model": "deepseek-v4-pro",
+    "extractor_provider": "ollama",
+    "extractor_model": "llama3.2:3b",
+    "synthesizer_provider": "ollama",
+    "synthesizer_model": "llama3.2:3b",
+    "judge_provider": "ollama",
+    "judge_model": "llama3.2:3b",
 }
 
 # --- ADD DEFAULT THRESHOLDS AS A FALLBACK ---
@@ -63,6 +63,8 @@ class Config:
             "extractor_criterion": self._load_prompt_optional("extractor_criterion.txt"),
             "synthesizer_system": self._load_prompt("synthesizer_system.txt"),
             "synthesizer_user": self._load_prompt("synthesizer_user.txt"),
+            "paper_overview_system": self._load_prompt_optional("paper_overview_system.txt"),
+            "paper_overview_user": self._load_prompt_optional("paper_overview_user.txt"),
         }
 
     def _load_yaml(self, file_path: str) -> Dict[str, Any]:

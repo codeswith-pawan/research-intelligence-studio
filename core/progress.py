@@ -73,6 +73,11 @@ class PaperCompleted(Event):
     recommendation: str = ""
     cost: float = 0.0
     duration_s: float = 0.0
+    review_status: str = "complete"
+    successful_criteria: int = 0
+    total_criteria: int = 0
+    verified_evidence_count: int = 0
+    unverified_evidence_count: int = 0
 
 
 @dataclass
@@ -103,6 +108,9 @@ class CostUpdate(Event):
 class RunCompleted(Event):
     event_type: str = "run_completed"
     total_papers: int = 0
+    papers_total: int = 0
+    papers_failed: int = 0
+    status: str = "completed"
     total_cost: float = 0.0
     total_time_s: float = 0.0
     output_dir: str = ""

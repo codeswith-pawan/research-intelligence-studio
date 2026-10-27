@@ -1,0 +1,59 @@
+# Manuscript Information
+**Title:** {paper_title}
+**Abstract:** {paper_abstract}
+
+# Manuscript Text
+{paper_content_sample}
+
+# Task
+Produce an objective, structured overview of this manuscript in valid JSON.
+
+Required Schema:
+```json
+{{
+  "sections": {{
+    "research_problem": {{
+      "status": "<'verified_content' or 'not_identified_in_text'>",
+      "content": "<string: clear summary of the core problem and motivation>",
+      "source_references": ["<string: traceable section/page reference if present>"]
+    }},
+    "research_objectives": {{
+      "status": "<'verified_content' or 'not_identified_in_text'>",
+      "content": "<string: specific objectives or research questions>",
+      "source_references": []
+    }},
+    "methodology": {{
+      "status": "<'verified_content' or 'not_identified_in_text'>",
+      "content": "<string: description of proposed architecture, approach, or theory>",
+      "source_references": []
+    }},
+    "main_contributions": {{
+      "status": "<'verified_content' or 'not_identified_in_text'>",
+      "content": "<string: principal contributions claimed by authors>",
+      "source_references": []
+    }},
+    "experimental_setup": {{
+      "status": "<'verified_content' or 'not_identified_in_text'>",
+      "content": "<string: datasets, baselines, hardware, or evaluation setup when applicable>",
+      "source_references": []
+    }},
+    "key_results": {{
+      "status": "<'verified_content' or 'not_identified_in_text'>",
+      "content": "<string: empirical findings or theoretical proofs>",
+      "source_references": []
+    }},
+    "limitations": {{
+      "status": "<'verified_content' or 'not_identified_in_text'>",
+      "content": "<string: limitations explicitly stated by authors; if none stated, mark as not_identified_in_text>",
+      "source_references": []
+    }},
+    "future_work": {{
+      "status": "<'verified_content' or 'not_identified_in_text'>",
+      "content": "<string: future directions explicitly proposed by authors; if none, mark as not_identified_in_text>",
+      "source_references": []
+    }}
+  }}
+}}
+```
+
+CRITICAL: Return ONLY the JSON object. Do not wrap in markdown or conversational text.

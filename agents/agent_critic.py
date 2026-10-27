@@ -27,7 +27,17 @@ from core.data_models import (
 )
 from core.config_loader import Config
 from core.llm_wrapper import call_llm
+from core.json_response import parse_json_object
+from core.synthesis_contract import evaluate_section_statuses
 from utilities.helpers import get_weights_table, calculate_novelty_adjusted_score
+from agents.evidence_grounding import (
+    EVIDENCE_GROUNDING_INSTRUCTIONS,
+    NO_GROUNDED_CRITERION,
+    build_grounded_extraction_context,
+    format_grounded_evidence_summary,
+    sanitize_grounded_text,
+    sanitize_synthesis_payload,
+)
 
 
 def _repair_schema_mismatch(
@@ -286,6 +296,7 @@ def _generate_research_trajectory(
                 fact_check_summary += f"- {fc.recommendation}\n\n"
 
     # Generate the trajectory using LLM
+    grounded_context, allowed_evidence_ids = build_grounded_extraction_context(extractions)
     prompt = f"""
 Based on the following information, write a "Research Trajectory and Position" section
 for an academic review.
@@ -307,6 +318,9 @@ NOVELTY ASSESSMENT:
 
 {fact_check_summary}
 
+SOURCE-VERIFIED TARGET-PAPER QUOTATIONS:
+{json.dumps(grounded_context, indent=2, ensure_ascii=False)}
+
 TASK:
 Write a concise (200-300 words) "Research Trajectory and Position" section that:
 
@@ -323,12 +337,18 @@ Write a concise (200-300 words) "Research Trajectory and Position" section that:
 4. **Verification Notes** (if applicable): Note any claims that require further
    verification based on fact-checking.
 
-Write in clear, academic prose suitable for inclusion in a peer review.
+Write in clear, academic prose suitable for inclusion in a peer review. Cite every factual
+sentence about the target paper with a supplied verified evidence ID immediately before its
+final punctuation, in the form [Evidence: criterion_id:Q1]. Do not infer missing content from
+the extracted text or use unverified quotation text. Omit claims without a verified citation.
 """
 
     response = call_llm(
         prompt=prompt,
-        system_prompt="You are an expert academic reviewer skilled at positioning research within the broader literature.",
+        system_prompt=(
+            "You are an expert academic reviewer skilled at positioning research within the broader literature.\n\n"
+            + EVIDENCE_GROUNDING_INSTRUCTIONS
+        ),
         provider=config.get_llm_config()['synthesizer_provider'],
         model=config.get_llm_config()['synthesizer_model'],
         temperature=config.get_agent_config()['critic_temperature'],
@@ -337,28 +357,20 @@ Write in clear, academic prose suitable for inclusion in a peer review.
     )
 
     if response['success']:
-        return response['content'].strip()
+        grounded_text, _ = sanitize_grounded_text(
+            response.get("content", ""),
+            allowed_evidence_ids,
+            fallback=(
+                "No source-grounded research-trajectory statement is available; "
+                "verify the target paper and baseline sources manually."
+            ),
+        )
+        return grounded_text
 
-    # Fallback: simple template
-    return f"""
-## Research Trajectory and Position
-
-This paper addresses the topic of **{baseline.sub_topic}**.
-
-### Position in the Literature
-
-The target paper [position relative to baseline papers].
-
-### Key Contributions
-
-[Summary of contributions based on novelty assessment]
-
-### Novelty Assessment
-
-{novelty_summary}
-
-{fact_check_summary}
-"""
+    return (
+        "No source-grounded research-trajectory statement is available; "
+        "verify the target paper and baseline sources manually."
+    )
 
 
 def _create_fallback_review(
@@ -371,97 +383,83 @@ def _create_fallback_review(
     rationale: str,
     novelty_adjusted_score: Optional[float] = None,
     literature_context: LiteratureContext = None,
-    research_trajectory: str = ""
+    research_trajectory: str = "",
+    synthesis_error: str = "Synthesis did not pass schema validation.",
 ) -> GroundedReview:
-    """
-    Create a fallback review when LLM JSON parsing fails.
-
-    This ensures the system always returns a valid review even when
-    the LLM doesn't return properly formatted JSON.
-    """
-    from core.data_models import DetailedAssessment
+    """Return a clearly marked diagnostic record without inventing review prose."""
+    from agents.agent_synthesizer import _coverage
 
     llm_config = config.get_llm_config()
-    final_score = novelty_adjusted_score or base_score
-
-    # Build criterion narratives from extractions
-    criterion_narrative = {}
-    for e in extractions:
-        narrative = f"**Score: {e.score}/100**\n\n{e.score_justification}\n\n"
-        if e.strengths:
-            narrative += "**Strengths:**\n" + "\n".join(f"- {s}" for s in e.strengths[:3]) + "\n\n"
-        if e.weaknesses:
-            narrative += "**Weaknesses:**\n" + "\n".join(f"- {w}" for w in e.weaknesses[:3]) + "\n\n"
-        criterion_narrative[e.criterion_id] = narrative
-
-    # Build detailed assessment
-    all_strengths = []
-    all_weaknesses = []
-    all_issues = []
-
-    for e in extractions:
-        all_strengths.extend(e.strengths[:2])
-        all_weaknesses.extend(e.weaknesses[:2])
-        if e.confidence < 0.7:
-            all_issues.append(f"Low confidence in assessment for {e.criterion_id}")
-
-    detailed_assessment = DetailedAssessment(
-        major_strengths=all_strengths[:5],
-        major_concerns=all_weaknesses[:5],
-        minor_issues=all_issues[:3]
+    final_score = novelty_adjusted_score if novelty_adjusted_score is not None else base_score
+    coverage = _coverage(extractions, config, synthesis_valid=False)
+    coverage["warnings"].append(synthesis_error)
+    extractor_model = (
+        extractions[0].model_used if extractions else
+        f"{llm_config.get('extractor_provider', 'unknown')}/{llm_config.get('extractor_model', 'unknown')}"
     )
-
-    # Build revision suggestions
-    revision_suggestions = []
-    for e in extractions:
-        if e.score < 70:
-            revision_suggestions.append(f"Improve {e.criterion_id}: {e.weaknesses[0] if e.weaknesses else 'address concerns noted'}")
-    if not revision_suggestions:
-        revision_suggestions = ["Consider addressing minor reviewer comments"]
-
-    # Calculate costs
-    total_cost = sum(e.cost for e in extractions)
-
-    extractor_model_name = extractions[0].model_used if extractions else "unknown_extractor"
-    synthesizer_model_name = f"{llm_config['synthesizer_provider']}/{llm_config['synthesizer_model']}"
-
-    # Build executive summary
-    executive_summary = f"""This paper was evaluated across {len(extractions)} criteria. The overall score is {final_score:.1f}/100.
-
-**Recommendation:** {recommendation}
-
-**Rationale:** {rationale}
-
-"""
-
-    if research_trajectory:
-        executive_summary += f"\n{research_trajectory}\n"
-
-    # Create the review
-    review = GroundedReview(
+    synthesizer_model = (
+        f"{llm_config.get('synthesizer_provider', 'unknown')}/"
+        f"{llm_config.get('synthesizer_model', 'unknown')}"
+    )
+    fallback_assessment = DetailedAssessment(
+        major_strengths=[],
+        major_concerns=[],
+        minor_issues=[],
+    )
+    section_statuses, section_diagnostics = evaluate_section_statuses(
+        summary_text=None,
+        major_strengths=[],
+        major_concerns=[],
+        minor_issues=[],
+        suggestions=[],
+        criterion_narratives={},
+        extractions=extractions,
+        synthesis_error=synthesis_error,
+        omitted_breakdown=None,
+    )
+    return GroundedReview(
         paper_id=paper.id,
-        paper_title=paper.metadata.title,
+        paper_title=paper.metadata.title or "No Title Found",
         paper_filename=paper.filename,
         overall_score=final_score,
         weighted_breakdown=breakdown,
-        recommendation=recommendation,
-        recommendation_rationale=rationale,
-        executive_summary=executive_summary,
-        detailed_assessment=detailed_assessment,
-        criterion_narrative=criterion_narrative,
-        revision_suggestions=revision_suggestions,
-        decision_confidence=sum(e.confidence for e in extractions) / len(extractions) if extractions else 0.5,
-        synthesizer_model_used=synthesizer_model_name,
-        extractor_model_used=extractor_model_name,
-        total_cost=total_cost,
+        recommendation="Needs Manual Review",
+        provisional_recommendation=recommendation,
+        recommendation_rationale=(
+            f"The diagnostic weighted score is {final_score:.1f}/100. "
+            "A final system recommendation is withheld because literature synthesis failed validation."
+        ),
+        executive_summary=(
+            "No validated literature-grounded synthesis is available. The displayed score is diagnostic; "
+            "review criterion results manually."
+        ),
+        detailed_assessment=fallback_assessment,
+        criterion_narrative={},
+        revision_suggestions=[],
+        decision_confidence=0.0,
+        synthesizer_model_used=synthesizer_model,
+        extractor_model_used=extractor_model,
+        total_cost=sum(item.cost for item in extractions),
         literature_context=literature_context or LiteratureContext(),
-        research_trajectory_section=research_trajectory,
+        research_trajectory_section="",
+        base_score=base_score,
         novelty_adjusted_score=novelty_adjusted_score,
-        llm_fallback_used=True  # Mark as fallback review
+        llm_fallback_used=True,
+        review_status="failed",
+        section_statuses=section_statuses,
+        section_diagnostics=section_diagnostics,
+        total_criteria=coverage["total"],
+        successful_criteria=coverage["successful"],
+        failed_criteria=len(coverage["failed_ids"]),
+        verified_evidence_count=coverage["verified"],
+        unverified_evidence_count=coverage["unverified"],
+        criteria_with_insufficient_evidence=coverage["insufficient"],
+        criterion_errors=coverage["errors"],
+        criterion_evidence=coverage["evidence"],
+        confidence_method="Heuristic reliability estimate; not statistically calibrated",
+        reliability_components=coverage["components"],
+        warnings=coverage["warnings"],
     )
-
-    print(f"[Critic] Created fallback review for {paper.filename}")
-    return review
 
 
 def synthesize_grounded_review(
@@ -486,11 +484,21 @@ def synthesize_grounded_review(
     """
     print(f"[Critic] Synthesizing grounded review for: {paper.filename}")
 
-    if not extractions:
-        print(f"[Critic Error] No extractions provided for {paper.filename}.")
-        return None
-
     llm_config = config.get_llm_config()
+    if not extractions:
+        print(f"[Critic Error] No extractions passed validation for {paper.filename}; saving a diagnostic record.")
+        _, rationale, base_score, breakdown = calculate_recommendation(extractions, config)
+        return _create_fallback_review(
+            paper=paper,
+            extractions=extractions,
+            config=config,
+            base_score=base_score,
+            breakdown=breakdown,
+            recommendation="Needs Manual Review",
+            rationale=rationale,
+            literature_context=LiteratureContext(),
+            synthesis_error="No criterion extraction passed validation.",
+        )
 
     # Use critic-specific prompts if available, otherwise fall back to synthesizer
     try:
@@ -528,8 +536,17 @@ def synthesize_grounded_review(
             total_api_calls=baseline.total_api_calls
         )
 
-    # Prepare extractions for prompt (convert to JSON)
-    extractions_list = [e.model_dump(mode='json') for e in extractions]
+    # Synthesis gets verified source quotations and criterion scores only. In particular,
+    # unverified quote text and extractor-generated criticism are not passed through.
+    grounded_context, allowed_evidence_ids = build_grounded_extraction_context(extractions)
+    grounded_by_id = {item["criterion_id"]: item for item in grounded_context}
+    extractions_list = []
+    for extraction in extractions:
+        item = dict(grounded_by_id[extraction.criterion_id])
+        novelty_ranking = getattr(extraction, "novelty_ranking", None)
+        if novelty_ranking is not None:
+            item["novelty_ranking"] = novelty_ranking
+        extractions_list.append(item)
     extractions_json = json.dumps(extractions_list, indent=2)
     weights_table = get_weights_table(config.get_criteria())
 
@@ -548,8 +565,9 @@ When writing your review, consider how the paper's claims relate to this literat
         paper_title=paper.metadata.title,
         paper_abstract=paper.metadata.abstract,
         json_dump_of_extractions=extractions_json,
+        evidence_summary=format_grounded_evidence_summary(extractions),
         weights_table=weights_table,
-        calculated_score=f"{novelty_adjusted_score or base_score:.1f}",
+        calculated_score=f"{novelty_adjusted_score if novelty_adjusted_score is not None else base_score:.1f}",
         calculated_recommendation=f"{recommendation} (Rationale: {rationale})"
     )
 
@@ -562,186 +580,86 @@ When writing your review, consider how the paper's claims relate to this literat
     if llm_config['synthesizer_provider'].lower() in ['openai', 'custom_openai']:
         # OpenAI requires "json" in messages when using JSON mode
         actual_system_prompt = "Respond ONLY with valid JSON. Your output must be JSON-formatted.\n\n" + system_prompt
+    actual_system_prompt += "\n\n" + EVIDENCE_GROUNDING_INSTRUCTIONS
 
-    # Call LLM with JSON parsing retry
-    max_json_retries = config.get_agent_config()['critic_max_json_retries']
-    review_data = None
-    raw_response = None
+    # Strictly validate the synthesis schema; missing fields produce a diagnostic report.
+    from agents.agent_synthesizer import _SynthesisPayload
 
-    for json_attempt in range(max_json_retries):
+    max_attempts = max(1, int(config.get_agent_config().get("critic_max_json_retries", 1)))
+    payload = None
+    response_cost = 0.0
+    schema_error = "Synthesis did not pass schema validation."
+    for json_attempt in range(max_attempts):
         response = call_llm(
             prompt=prompt,
             system_prompt=actual_system_prompt,
-            provider=llm_config['synthesizer_provider'],
-            model=llm_config['synthesizer_model'],
-            temperature=llm_config['temperature'],
-            max_retries=llm_config['max_retries'],
+            provider=llm_config["synthesizer_provider"],
+            model=llm_config["synthesizer_model"],
+            temperature=llm_config["temperature"],
+            max_retries=llm_config["max_retries"],
             response_format="json",
-            role="synthesis"
+            role="synthesis",
         )
-
-        if not response['success']:
-            print(f"[Critic Error] LLM call failed for {paper.filename}: {response['error']}")
-            return None
-
-        raw_content = response['content']
-        raw_response = raw_content
-        response_len = len(raw_content)
-
-        # Debug logging
-        print(f"[Critic] Attempt {json_attempt + 1}/{max_json_retries}: Response length = {response_len} chars")
-        print(f"[Critic] Model: {llm_config['synthesizer_provider']}/{llm_config['synthesizer_model']}")
-
-        # Try to find JSON in the response
-        start_index = raw_content.find('{')
-        end_index = raw_content.rfind('}')
-
-        print(f"[Critic] JSON markers: start={start_index}, end={end_index}")
-
-        if start_index == -1 or end_index == -1 or end_index < start_index:
-            print(f"[Critic Warning] No valid JSON markers found")
-            print(f"[Critic] Response preview (first 300 chars):\n{raw_content[:300]}")
-            print(f"[Critic] Response preview (last 300 chars):\n{raw_content[-300:]}")
-
-            # Check if response looks complete
-            if len(raw_content) < 500:
-                print(f"[Critic] Response suspiciously short - may be incomplete")
-
-            if json_attempt < max_json_retries - 1:
-                print(f"[Critic] Retrying with stricter instructions...")
-                # Add stricter JSON requirement to prompt
-                prompt += "\n\nIMPORTANT: You must respond with valid JSON only. No markdown, no text before/after the JSON."
-                continue
-            else:
-                print(f"[Critic] All retries exhausted. Using fallback review.")
-                # Create fallback review after all retries fail
-                return _create_fallback_review(
-                    paper=paper,
-                    extractions=extractions,
-                    config=config,
-                    base_score=base_score,
-                    breakdown=breakdown,
-                    recommendation=recommendation,
-                    rationale=rationale,
-                    novelty_adjusted_score=novelty_adjusted_score,
-                    literature_context=literature_context,
-                    research_trajectory=research_trajectory
-                )
-
-        # Extract JSON
-        json_text = raw_content[start_index:end_index + 1]
-        json_len = len(json_text)
-        print(f"[Critic] Extracted JSON: {json_len} chars")
-
+        if not response.get("success"):
+            schema_error = "Configured synthesis provider request failed."
+            break
         try:
-            review_data = json.loads(json_text)
-            print(f"[Critic] ✓ JSON parsed successfully on attempt {json_attempt + 1}")
-            break  # Success - exit retry loop
-        except json.JSONDecodeError as e:
-            print(f"[Critic Warning] JSON parsing failed on attempt {json_attempt + 1}: {e}")
-            print(f"[Critic] JSON preview (first 500 chars):\n{json_text[:500]}")
-            print(f"[Critic] JSON preview (last 300 chars):\n{json_text[-300:]}")
+            candidate = parse_json_object(response.get("content"))
+            # Rescue fields that small models sometimes nest inside criterion_narrative.
+            from agents.agent_synthesizer import _rescue_misplaced_fields
+            candidate = _rescue_misplaced_fields(candidate)
 
-            # Log the full JSON for debugging
-            import tempfile
-            debug_file = tempfile.gettempdir() + "/critic_json_debug.txt"
-            with open(debug_file, 'w') as f:
-                f.write(f"=== LLM Response for {paper.filename} ===\n\n")
-                f.write(f"Raw content length: {len(raw_content)}\n\n")
-                f.write(f"Extracted JSON length: {len(json_text)}\n\n")
-                f.write(f"JSON parsing error: {e}\n\n")
-                f.write(f"=== Raw Content ===\n\n{raw_content}\n\n")
-                f.write(f"=== Extracted JSON ===\n\n{json_text}\n\n")
-            print(f"[Critic] Full response saved to: {debug_file}")
+            criteria_with_verified = {
+                e.criterion_id
+                for e in extractions
+                if any(item.verification_status == "Verified" for item in e.evidence)
+            }
+            criteria_without_verified = {
+                e.criterion_id for e in extractions
+            } - criteria_with_verified
 
-            if json_attempt < max_json_retries - 1:
-                print(f"[Critic] Retrying...")
-                prompt += "\n\nIMPORTANT: Ensure your JSON is properly formatted and complete."
-                continue
-            else:
-                print(f"[Critic] All retries exhausted. Using fallback review.")
-                return _create_fallback_review(
-                    paper=paper,
-                    extractions=extractions,
-                    config=config,
-                    base_score=base_score,
-                    breakdown=breakdown,
-                    recommendation=recommendation,
-                    rationale=rationale,
-                    novelty_adjusted_score=novelty_adjusted_score,
-                    literature_context=literature_context,
-                    research_trajectory=research_trajectory
+            narratives = candidate.get("criterion_narrative")
+            if isinstance(narratives, dict):
+                for cid in criteria_without_verified:
+                    if cid not in narratives or not str(narratives.get(cid, "")).strip():
+                        narratives[cid] = NO_GROUNDED_CRITERION
+
+            payload = _SynthesisPayload.model_validate(candidate)
+            expected_ids = {item.criterion_id for item in extractions}
+            actual_ids = set(payload.criterion_narrative)
+            if actual_ids != expected_ids:
+                missing = sorted(expected_ids - actual_ids)
+                extra = sorted(actual_ids - expected_ids)
+                raise ValueError(
+                    f"Criterion narratives differ from extracted criteria; missing={missing}, extra={extra}."
                 )
-
-    # If we get here, JSON parsing succeeded
-    if not review_data:
-        print(f"[Critic Error] Unexpected: review_data is None after successful parsing")
-        return None
-
-    # Debug: Log what keys the LLM returned
-    print(f"[Critic Debug] Keys in LLM response: {list(review_data.keys())}")
-
-    # Repair schema mismatches - LLMs may not return exact schema
-    print(f"[Critic] Checking for schema mismatches...")
-    review_data = _repair_schema_mismatch(
-        review_data=review_data,
-        base_score=base_score,
-        extractions=extractions,
-        recommendation=recommendation,
-        rationale=rationale
-    )
-
-    # Calculate costs
-    total_extraction_cost = sum(e.cost for e in extractions)
-    total_cost = total_extraction_cost + response.get('cost', 0.0)
-
-    if 'criterion_narrative' not in review_data or not isinstance(review_data['criterion_narrative'], dict):
-        print(f"[Critic Warning] 'criterion_narrative' not found or not a dict.")
-        if 'criterion_narrative' in review_data:
-            print(f"[Critic Debug] criterion_narrative type: {type(review_data['criterion_narrative'])}")
-            print(f"[Critic Debug] criterion_narrative value: {review_data['criterion_narrative']}")
-        else:
-            print(f"[Critic Debug] Available keys in review_data: {list(review_data.keys())}")
-        review_data['criterion_narrative'] = {}
-
-    extractor_model_name = extractions[0].model_used if extractions else "unknown_extractor"
-    synthesizer_model_name = f"{llm_config['synthesizer_provider']}/{llm_config['synthesizer_model']}"
-
-    # Use the novelty-adjusted score if available, otherwise use base score
-    final_score = novelty_adjusted_score or base_score
-
-    # Recompute recommendation from final_score against thresholds
-    thresholds = config.get_recommendation_thresholds()
-    final_recommendation = thresholds[-1]['label'] if thresholds else "Reject"
-    for item in thresholds:
-        if final_score >= item['threshold']:
-            final_recommendation = item['label']
+            if not payload.executive_summary.strip() or not payload.recommendation_rationale.strip():
+                raise ValueError("Required synthesis text is empty.")
+            for cid in criteria_with_verified:
+                narr = payload.criterion_narrative.get(cid, "")
+                if not narr or not narr.strip():
+                    raise ValueError(f"A criterion narrative is empty for criterion with verified evidence: {cid}")
+            payload, grounding_omissions, omitted_breakdown = sanitize_synthesis_payload(
+                payload, allowed_evidence_ids, return_breakdown=True
+            )
+            response_cost = float(response.get("cost", 0.0) or 0.0)
+            break
+        except (ValidationError, ValueError) as exc:
+            if isinstance(exc, ValidationError):
+                issues = []
+                for issue in exc.errors(include_input=False)[:8]:
+                    location = ".".join(str(part) for part in issue.get("loc", ())) or "response"
+                    issues.append(f"{location}: {issue.get('msg', 'invalid value')}")
+                schema_error = "Synthesis schema validation failed: " + "; ".join(issues)
+            else:
+                schema_error = f"Synthesis response rejected: {str(exc)[:180]}"
+            payload = None
+            if json_attempt + 1 < max_attempts:
+                prompt += "\n\nIMPORTANT: Return a complete JSON object matching every required field and criterion."
+                continue
             break
 
-    try:
-        review = GroundedReview(
-            paper_id=paper.id,
-            paper_title=paper.metadata.title,
-            paper_filename=paper.filename,
-            overall_score=final_score,
-            recommendation=final_recommendation,
-            weighted_breakdown=breakdown,
-            synthesizer_model_used=synthesizer_model_name,
-            extractor_model_used=extractor_model_name,
-            total_cost=total_cost,
-            literature_context=literature_context,
-            research_trajectory_section=research_trajectory,
-            novelty_adjusted_score=novelty_adjusted_score,
-            **{k: v for k, v in review_data.items() if k not in ('overall_score', 'recommendation')},
-        )
-
-        return review
-    except ValidationError as e:
-        print(f"[Critic Error] Pydantic validation failed for {paper.filename}: {e}")
-        print(f"[Critic Debug] Fields returned by LLM: {list(review_data.keys())}")
-        print(f"[Critic Debug] Full LLM response:")
-        print(json.dumps(review_data, indent=2))
-        print(f"[Critic] Using fallback review due to validation error")
+    if payload is None:
         return _create_fallback_review(
             paper=paper,
             extractions=extractions,
@@ -752,9 +670,96 @@ When writing your review, consider how the paper's claims relate to this literat
             rationale=rationale,
             novelty_adjusted_score=novelty_adjusted_score,
             literature_context=literature_context,
-            research_trajectory=research_trajectory
+            synthesis_error=schema_error,
         )
 
+    review_data = payload.model_dump()
+    total_cost = sum(item.cost for item in extractions) + response_cost
+
+    extractor_model_name = extractions[0].model_used if extractions else "unknown_extractor"
+    synthesizer_model_name = f"{llm_config['synthesizer_provider']}/{llm_config['synthesizer_model']}"
+
+    # Preserve the novelty-adjusted score as a diagnostic and apply evidence safeguards.
+    from agents.agent_synthesizer import _coverage
+
+    final_score = novelty_adjusted_score if novelty_adjusted_score is not None else base_score
+    coverage = _coverage(extractions, config, synthesis_valid=True)
+    if grounding_omissions:
+        coverage["warnings"].append(
+            f"{grounding_omissions} synthesis statement(s) without valid verified-evidence citations "
+            "were omitted. Check the full manuscript before relying on narrative findings."
+        )
+    thresholds = config.get_recommendation_thresholds()
+    provisional_recommendation = thresholds[-1]["label"] if thresholds else "Reject"
+    for threshold in thresholds:
+        if final_score >= threshold["threshold"]:
+            provisional_recommendation = threshold["label"]
+            break
+    review_status = coverage["status"]
+    final_recommendation = (
+        provisional_recommendation if review_status == "complete" else "Needs Manual Review"
+    )
+    if review_status == "complete":
+        final_rationale = (
+            f"The weighted score of {final_score:.1f}/100 maps to {provisional_recommendation} "
+            "under the configured thresholds. The system output is advisory and requires editorial judgment."
+        )
+    else:
+        final_rationale = (
+            f"The diagnostic weighted score is {final_score:.1f}/100, which maps provisionally to "
+            f"{provisional_recommendation}. A final recommendation is withheld because required criteria "
+            "or verified evidence are insufficient."
+        )
+
+    section_statuses, section_diagnostics = evaluate_section_statuses(
+        summary_text=payload.executive_summary,
+        major_strengths=payload.detailed_assessment.major_strengths,
+        major_concerns=payload.detailed_assessment.major_concerns,
+        minor_issues=payload.detailed_assessment.minor_issues,
+        suggestions=payload.revision_suggestions,
+        criterion_narratives=payload.criterion_narrative,
+        extractions=extractions,
+        synthesis_error=None,
+        omitted_breakdown=omitted_breakdown if "omitted_breakdown" in locals() else None,
+    )
+
+    return GroundedReview(
+        paper_id=paper.id,
+        paper_title=paper.metadata.title or "No Title Found",
+        paper_filename=paper.filename,
+        overall_score=final_score,
+        recommendation=final_recommendation,
+        provisional_recommendation=provisional_recommendation,
+        recommendation_rationale=final_rationale,
+        weighted_breakdown=breakdown,
+        synthesizer_model_used=synthesizer_model_name,
+        extractor_model_used=extractor_model_name,
+        total_cost=total_cost,
+        literature_context=literature_context,
+        research_trajectory_section=research_trajectory,
+        base_score=base_score,
+        novelty_adjusted_score=novelty_adjusted_score,
+        executive_summary=payload.executive_summary,
+        detailed_assessment=DetailedAssessment(**payload.detailed_assessment.model_dump()),
+        criterion_narrative=payload.criterion_narrative,
+        revision_suggestions=payload.revision_suggestions,
+        decision_confidence=coverage["confidence"],
+        review_status=review_status,
+        section_statuses=section_statuses,
+        section_diagnostics=section_diagnostics,
+        total_criteria=coverage["total"],
+        successful_criteria=coverage["successful"],
+        failed_criteria=len(coverage["failed_ids"]),
+        verified_evidence_count=coverage["verified"],
+        unverified_evidence_count=coverage["unverified"],
+        criteria_with_insufficient_evidence=coverage["insufficient"],
+        criterion_errors=coverage["errors"],
+        criterion_evidence=coverage["evidence"],
+        confidence_method="Heuristic reliability estimate; not statistically calibrated",
+        reliability_components=coverage["components"],
+        warnings=coverage["warnings"],
+        llm_fallback_used=False,
+    )
 
 # Re-export calculate_recommendation for backward compatibility
 from agents.agent_synthesizer import calculate_recommendation

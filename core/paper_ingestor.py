@@ -1,6 +1,7 @@
 # core/paper_ingestor.py (enhanced version)
 import os
 import json
+import re
 from markitdown import MarkItDown
 from core.data_models import Paper, PaperMetadata
 from litellm import token_counter
@@ -11,6 +12,85 @@ import time
 from datetime import datetime
 
 import pymupdf4llm
+
+FRONT_MATTER_PATTERNS = [
+    r'(?:provided\s+proper\s+)?attribution\b',
+    r'permission\s+(?:to\s+make|is\s+granted|hereby\s+grants)',
+    r'\breproduce\s+(?:the\s+tables|this\s+paper|any\s+part)',
+    r'\bjournalistic\s+or\s+scholarly\b',
+    r'^copyright\b',
+    r'\ball\s+rights\s+reserved\b',
+    r'^licensed?\s+under\b',
+    r'this\s+(?:article|paper|work)\s+is\s+(?:licensed|distributed|under|accepted|published)\b',
+    r'^journal\s+of\b',
+    r'(?:proceedings\s+of|submitted\s+to|under\s+review|to\s+appear\s+in|published\s+as|presented\s+at)\b',
+    r'(?:arxiv|biorxiv|medrxiv|ssrn):\s*\d+',
+    r'(?:issn|isbn|doi):\s*',
+    r'^https?://',
+    r'^www\.',
+    r'^vol(?:ume|\.)?\s+\d+',
+]
+
+SECTION_HEADINGS = {
+    'abstract', 'introduction', 'contents', 'table of contents', 'index',
+    'references', 'appendix', 'acknowledgments', 'acknowledgements', 'background'
+}
+
+def is_front_matter_line(line: str) -> bool:
+    """Check if a line matches known front-matter, disclaimer, or journal banner patterns."""
+    l_lower = line.lower().strip()
+    for pat in FRONT_MATTER_PATTERNS:
+        if re.search(pat, l_lower):
+            return True
+    return False
+
+def clean_title_text(raw: str) -> str:
+    """Clean markdown headings, asterisks, and whitespace from a title string."""
+    cleaned = re.sub(r'^[#\s*]+', '', raw)
+    cleaned = re.sub(r'[*_#]+', '', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    return cleaned.strip()
+
+def extract_title_from_text(markdown_text: str) -> str:
+    """
+    Deterministic title extraction that ignores front-matter notices/disclaimers
+    and prioritizes genuine paper title headings.
+    """
+    if not markdown_text or not markdown_text.strip():
+        return "No Title Found"
+
+    raw_paragraphs = [p.strip() for p in markdown_text.split('\n\n') if p.strip()]
+
+    # Pass 1: Look for explicit markdown headings (# or ##) in the first few blocks
+    for para in raw_paragraphs[:15]:
+        for line in para.split('\n'):
+            line = line.strip()
+            if line.startswith('#'):
+                candidate = clean_title_text(line)
+                if not candidate or len(candidate) < 3:
+                    continue
+                if candidate.lower() in SECTION_HEADINGS:
+                    continue
+                if is_front_matter_line(candidate):
+                    continue
+                return candidate
+
+    # Pass 2: If no heading tag, look for non-front-matter paragraphs
+    for para in raw_paragraphs[:8]:
+        if is_front_matter_line(para):
+            continue
+        first_line = para.split('\n')[0].strip()
+        candidate = clean_title_text(first_line)
+        if not candidate or len(candidate) < 3:
+            continue
+        if candidate.lower() in SECTION_HEADINGS:
+            continue
+        if is_front_matter_line(candidate):
+            continue
+        if len(candidate) > 5 and not candidate.endswith((' to', ' and', ' with', ' for', ' the')):
+            return candidate
+
+    return "No Title Found"
 
 def estimate_tokens(text: str) -> int:
     """Estimate token count using litellm's counter."""
@@ -26,14 +106,8 @@ def extract_metadata(markdown_text: str) -> PaperMetadata:
     """
     lines = markdown_text.split('\n')
 
-    # Extract title (first non-empty line, removing markdown #)
-    title = "No Title Found"
-    for line in lines:
-        stripped = line.strip()
-        if stripped:
-            # Remove leading # symbols
-            title = stripped.lstrip('#').strip()
-            break
+    # Extract title deterministically skipping front-matter notices
+    title = extract_title_from_text(markdown_text)
 
     # Extract abstract
     # Look for abstract in the first part of the document

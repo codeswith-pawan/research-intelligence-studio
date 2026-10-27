@@ -21,7 +21,7 @@ package-lock.json
 outputs/
 papers/
 papers_master/
-run_*/
+/run_*/
 *.log
 temp.*
 x.md
@@ -46,7 +46,50 @@ fetch_arxiv_papers.py
 # Test caches and dirs
 test_literature_enhanced/
 test_literature_run/
-tests/
+!tests/
 
 # Archives
 archive/
+
+# Generated test coverage artifacts
+.coverage
+htmlcov/
+
+# Local backup snapshots (keep files on disk, exclude from Git)
+*.bak
+*.before_*
+*.pre_*
+
+# Generated test coverage artifacts
+.coverage
+.coverage*
+htmlcov/
+
+# Pre-release safety exclusions (untracked local runtime state & private reports)
+/batch_queue.json
+VERITAS*
+report_output/
+/audit_evidence.py
+/generate_evidence.py
+/uploads/
+/exports/
+!.env_example
+!web/static/*.html
+!tests/fixtures/**
+
+# Local runtime fixtures: never commit secrets or generated review outputs
+tests/fixtures/**/.env
+tests/fixtures/**/ingestion_cache.json
+tests/fixtures/**/progress.json
+tests/fixtures/**/outputs/
+tests/fixtures/**/run_metadata.json
+tests/fixtures/**/soft_deleted.json
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+
+# Generated coverage reports
+.coverage
+.coverage.*
+htmlcov/

@@ -119,7 +119,7 @@ def _call_custom_ollama_bypass(
     system_prompt: str,
     prompt: str,
     model: str,
-    response_format: Optional[str] = None,
+    response_format: Optional[Any] = None,
     messages: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
@@ -164,7 +164,7 @@ def _call_custom_ollama_bypass(
         "model": model,
         "messages": flat_messages,
         "temperature": 1.0,
-        "max_completion_tokens": resolve_max_tokens("custom_openai", model),
+        "max_tokens": resolve_max_tokens("custom_openai", model),
         "stream": False
         # 'max_tokens' is (correctly) NOT included
     }
@@ -233,7 +233,7 @@ def call_llm(
    # print(f"\n[LLM_Wrapper_V8_DEBUG] Checking for bypass for provider: '{provider}', model: '{model}'")
 
     # Check for the *one* failing combination
-    if provider.strip().lower() == "custom_openai" and model.strip().lower().startswith("gpt-5"):
+    if provider.strip().lower() == "custom_openai":
         # ---
         # BLOCK 1: THE BYPASS
         # ---
@@ -259,6 +259,11 @@ def call_llm(
         "temperature": temperature,
         "max_tokens": max_tokens_limit
     }
+
+    # Ollama commonly runs with a 4K active context even when the model advertises
+    # a larger maximum. Keep extraction output bounded so prompt plus JSON can fit.
+    if provider_lower == "ollama" and role == "extraction":
+        params["max_tokens"] = min(params["max_tokens"], 1024)
 
     # 2. Handle the *working* 'openai/gpt-5' variant
     if provider.strip().lower() == "openai" and model.strip().lower().startswith("gpt-5"):
@@ -286,8 +291,14 @@ def call_llm(
         # They rely on prompt engineering instead
         elif provider_lower == "deepseek":
             print(f"[LLM] DeepSeek JSON mode via prompt engineering (no native JSON mode)")
+        elif provider_lower == "ollama":
+            params["response_format"] = {"type": "json_object"}
+            print("[LLM] Enabling Ollama native JSON mode")
         else:
             print(f"[LLM] JSON mode requested but {provider} support unknown, using prompt only")
+    elif isinstance(response_format, dict) and provider.strip().lower() == "ollama":
+        # LiteLLM maps this JSON Schema format to Ollama's native `format` field.
+        params["response_format"] = response_format
 
     #print(f"[LLM_Wrapper_V8_DEBUG] Final litellm keys: {list(params.keys())}")
 

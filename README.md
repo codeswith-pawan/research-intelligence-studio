@@ -1,305 +1,180 @@
-# Agentic Paper Review System
+# Research Intelligence Studio: Agentic Paper Review System
 
-A domain-agnostic, multi-agent LLM system for structured academic paper review. Ingests PDFs (and other formats), evaluates each paper against custom criteria, and produces scored reviews with optional cross-model adjudication and literature grounding. While designed for academic papers, the fully configurable criteria and prompts make it applicable to any document that needs structured evaluation — grant proposals, project reports, policy briefs, or technical documentation.
+A domain-agnostic, multi-agent LLM system for structured, evidence-grounded academic paper review. Ingests manuscripts in PDF and DOCX formats, evaluates each paper against customizable rubrics, verifies quotations directly against extracted source text, and produces multidimensional reviews, audit packages, and structured 8-dimensional paper overviews.
 
-**Human oversight is central to the design.** The AI produces structured reviews and scores — the final accept/reject decisions are always made by humans. Multi-model comparison and the AI Judge help reviewers focus where it matters by surfacing the papers where models disagree, rather than requiring manual review of every assessment.
+> **Human Oversight Philosophy**<br>
+> The system is designed as an intelligent reviewer's copilot, not an autonomous decider. It computes heuristic diagnostic evaluations and surfaces potential methodological weaknesses or ungrounded claims. Final acceptance decisions remain strictly with human reviewers.
 
+---
 
-**Full documentation:** https://c3.unu.edu/projects/ai/paperreview/userguide.html
+## Key Features
 
-**Blog article:** https://c3.unu.edu/blog/from-months-to-days-ai-assisted-peer-review-with-human-oversight
+- **Multi-Agent Evaluation Pipeline:**
+  - **Specialist Agent:** Reads the manuscript criterion-by-criterion, extracting quantitative scores and verbatim supporting quotes.
+  - **Synthesizer Agent:** Assembles holistic assessments, enforces conservative missing-section handling, and structures recommendations.
+  - **Fact-Checker & Librarian Agents:** Assesses claim validity and novelty against baseline academic literature (Arxiv, Semantic Scholar).
+  - **Critic Agent:** Conducts research trajectory analysis and novelty-adjusted scoring.
+- **Dedicated Paper Overview Tab:** Provides an 8-dimensional manuscript breakdown (Research Problem, Objectives, Methodology, Main Contributions, Experimental Setup, Key Results, Stated Limitations, and Future Work) using reference-aware 3-part sampling.
+- **Strict Evidence Grounding & Safety Gates:** Every factual claim is mapped to verified verbatim quotes. If any quote fails conservative exact-text verification, the review is automatically routed to the safety gate (status: **"Needs Manual Review"**; internal flag: `MANUAL_REVIEW`).
+- **Batch Processing & Duplicate Prevention:** Multi-file queue with SHA-256 fingerprinting that automatically detects and skips identical manuscripts (`skip` vs `force_new` policies).
+- **Safe Soft-Deletion & Lossless Trash Recovery:** Allows non-destructive deletion and restoration of reviews with complete artifact preservation.
+- **Audit Provenance Export:** One-click export of structured JSON packages (`audit_{paper}.json`) containing full evidence trails, section analyses, citation checks, and quality diagnostics.
 
-## How It Works
+---
 
-The system uses a team of AI agents, each with a distinct role:
+## Architecture & Tech Stack
 
-| Agent | Role |
-|-------|------|
-| **Specialist** | Conducts detailed, criterion-by-criterion analysis of each paper |
-| **Editor** | Synthesizes specialist findings into a polished final review |
-| **Judge** | Resolves conflicts between reviews from different AI models |
-| **Librarian** | Searches academic databases for related papers (optional) |
-| **Fact-Checker** | Verifies suspicious claims like "first study" (optional) |
-| **Critic** | Synthesizes reviews with research trajectory analysis (optional) |
+- **Backend:** FastAPI (Python 3.10+)
+- **Inference Engine:** Local Ollama (`llama3.2:3b`) via LiteLLM
+- **Document Ingestion:** PyMuPDF, MarkItDown, python-docx
+- **Event Streaming:** Server-Sent Events (SSE) via `sse-starlette`
+- **Frontend:** Vanilla JavaScript, HTML5, CSS3 (No Node.js build step required)
+- **Testing:** Pytest (207 automated regression and unit tests)
 
-### Pipeline
+```
+[Uploaded Manuscript (PDF/DOCX)]
+               │
+               ▼
+   [Paper Ingestion Engine]
+  (PyMuPDF / MarkItDown / DOCX)
+               │
+               ├────────────────────────────────────────┐
+               ▼                                        ▼
+    [Specialist Extractor]                    [Paper Overview Engine]
+ (Criterion-by-criterion analysis)          (8-dimensional synthesis)
+               │                                        │
+               ▼                                        ▼
+    [Synthesizer & Critic]                     [Paper Overview Tab]
+   (Score calculation & gates)
+               │
+               ▼
+[Analysis Studio / Past Reviews / Audit Export]
+```
 
-1. **Ingestion** — PDFs, Markdown, DOCX, and TXT files are read and converted to text.
-2. **Extraction** — The Specialist reads the paper once per criterion, extracting scores with evidence and quotes.
-3. **Synthesis** — The Editor gathers all specialist reports and writes a final weighted review.
-4. **Output** — Individual `.md` reviews and a consolidated `.csv` spreadsheet.
-5. **(Optional) Comparison + Judge** — Run with multiple models, compare results, and have an AI Judge adjudicate conflicts.
+---
 
-### Literature Grounding (Optional)
+## Prerequisites & Local Setup
 
-Enable with `--literature-grounding` to add a 4-stage literature analysis:
-
-1. **Librarian** — Searches Semantic Scholar, Arxiv, and World Bank for related papers
-2. **Reader** — Extracts evidence and ranks novelty (1-5) against baseline literature
-3. **Fact-Checker** — Verifies suspicious claims through targeted searches
-4. **Critic** — Synthesizes with research trajectory and novelty-adjusted scoring
-
-## Quick Start
-
-### Installation
+### 1. Install Ollama & Pull the Model (macOS / Linux)
+Download and install Ollama from [ollama.com](https://ollama.com) or install via terminal:
 
 ```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull the lightweight local model
+ollama pull llama3.2:3b
+```
+
+Verify that the Ollama service is active and the model is loaded:
+```bash
+curl http://127.0.0.1:11434/api/tags
+```
+
+### 2. Set Up Virtual Environment & Dependencies
+*(Note: Repository URL will be configured upon release. For local setup, run these commands from the project root directory.)*
+
+```bash
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install required dependencies
 pip install -r requirements.txt
 ```
 
-### Configure API Keys
-
-Create a `.env` file at the project root (see `.env_example` for all options):
-
-```env
-OPENAI_API_KEY=sk-...
-DEEPSEEK_API_KEY=sk-...
-DEEPSEEK_API_BASE=https://api.deepseek.com/v1
-GEMINI_API_KEY=AIza...
-ANTHROPIC_API_KEY=sk-ant-...
-CUSTOM_OPENAI_API_KEY=your-key
-CUSTOM_OPENAI_API_BASE=http://your-server:port/v1
-
-# Model selection (swap freely — any model supported by litellm)
-PROVIDER_EXTRACTION=deepseek
-EXTRACTOR_MODEL=deepseek-v4-flash
-PROVIDER_SYNTHESIS=deepseek
-SYNTHESIZER_MODEL=deepseek-v4-flash
-JUDGE_PROVIDER=gemini
-JUDGE_MODEL=gemini-3.1-flash-lite
+### 3. Configure Local Environment
+Copy the example configuration:
+```bash
+cp .env_example .env
 ```
 
-### Option A: Web Dashboard
+Ensure `.env` contains local Ollama defaults:
+```env
+PROVIDER_EXTRACTION=ollama
+EXTRACTOR_MODEL=llama3.2:3b
+PROVIDER_SYNTHESIS=ollama
+SYNTHESIZER_MODEL=llama3.2:3b
+JUDGE_PROVIDER=ollama
+JUDGE_MODEL=llama3.2:3b
+TEMPERATURE=0.2
+MAX_RETRIES=3
+MAX_PARALLEL_EXTRACTIONS=1
+LLM_TIMEOUT=300
+```
 
+---
+
+## Running the Application
+
+### Launch the Web Dashboard
 ```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Start dashboard
 python web_app.py --port 8050
 ```
 
-Open **http://localhost:8050** to configure models, edit criteria/prompts, run reviews, and view results — all from the browser. See [Web Dashboard](#web-dashboard) for details.
+Open **`http://localhost:8050`** in your browser.
 
-### Option B: Command Line
-
+### Running via Command Line
 ```bash
-# 1. Set up a run directory
+# Set up a run directory
 python setup_run.py --run-dir my_review_run
 
-# 2. Review criteria and domain BEFORE running
-#    Edit my_review_run/input/criteria.yaml — verify that `domain` matches
-#    your papers (e.g., computer_science, development_economics).
-
-# 3. Drop papers into my_review_run/papers/
-
-# 4. Run the review
-python run_with_custom_params.py \
-  --run-dir my_review_run \
-  --provider-extraction deepseek \
-  --extractor-model deepseek-v4-flash \
-  --provider-synthesis openai \
-  --synthesizer-model gpt-5.4-mini
+# Drop a PDF into my_review_run/papers/ and run:
+python run_review_with_dir.py --run-dir my_review_run
 ```
 
-Results appear in `my_review_run/outputs/reviews/` (individual reviews) and `my_review_run/outputs/reports/` (consolidated CSV).
+---
 
-### Literature-Grounded Review
+## Automated Test Suite
 
+The test suite covers full regression verification across all five phases:
+- Navigation and audit provenance export
+- Soft-delete, trash isolation, and lossless restoration
+- Batch queue persistence, retry logic, and restart recovery
+- Synthesis contract, missing-section truthfulness, and safety gates
+- Dedicated 8-dimensional Paper Overview extraction and caching
+- DOCX and PDF verbatim quotation verification
+
+Run all 207 tests:
 ```bash
-python setup_run_literature.py --run-dir my_literature_review
-python run_review_with_dir_literature.py \
-  --run-dir my_literature_review \
-  --literature-grounding
+pytest -v
 ```
 
-### Compare Models + AI Judge
+---
 
-```bash
-# Step 1: Run with different models (repeat with different flags)
-python run_with_custom_params.py --run-dir my_review_run \
-  --provider-extraction openai --extractor-model gpt-5.4-mini \
-  --provider-synthesis openai --synthesizer-model gpt-5.4-mini
+## Screenshots
 
-python run_with_custom_params.py --run-dir my_review_run \
-  --provider-extraction deepseek --extractor-model deepseek-v4-flash \
-  --provider-synthesis deepseek --synthesizer-model deepseek-v4-flash
+### System Overview
+High-level system statistics, diagnostic scoring distributions, and activity monitoring:
+![System Overview](docs/screenshots/overview.png)
 
-# Step 2: Find conflicts
-python compare_reports.py --run-dir my_review_run
+### Manuscript Upload & Deduplication
+File staging supporting PDF and DOCX with SHA-256 duplicate detection:
+![Upload Manuscript](docs/screenshots/upload.png)
 
-# Step 3: Adjudicate
-python judge_conflicts.py --run-dir my_review_run
-```
+### Analysis Studio
+Live multi-agent review execution, 3-tier governance scoring, criteria deep-dive, and safety gate indicators:
+![Analysis Studio](docs/screenshots/analysis_studio.png)
 
-## Web Dashboard
+### Dedicated Paper Overview
+Structured 8-dimensional manuscript breakdown with truthful missing-information handling:
+![Paper Overview](docs/screenshots/paper_overview.png)
 
-A built-in web UI for configuring and running reviews from the browser.
+---
 
-### Start the Dashboard
+## Known Limitations & Design Boundaries
 
-```bash
-python web_app.py --port 8050
-```
+- **Local Demonstration Scope:** Designed specifically for single-user local evaluation and lab demonstration. It **does not include** multi-user session management, authentication, or tenant data isolation.
+- **Do Not Expose to Open Internet:** The web server has no authentication layer. Run only on `localhost` or behind an authenticated VPN / SSH tunnel.
+- **Local Model Context Bounds:** The `llama3.2:3b` model operates with a 4K active context window; long papers rely on targeted 3-part section sampling.
+- **Rubric Specialization:** Default criteria are tuned for empirical methodology. Criteria can be edited in `config/criteria.yaml` for other academic disciplines.
 
-Open **http://localhost:8050**.
-
-> **Note:** The web dashboard is designed for local use only. It has no authentication — do not expose it on a public network or the open internet. If you need remote access, use an SSH tunnel or VPN.
-
-### Features
-
-- **Start/Stop Runs** — Select a run directory, pick Standard or Literature-Grounded mode, and start reviews with one click
-- **Real-time Progress** — Live SSE progress bar, stage indicators, cost tracking, and event log
-- **Config Editor** — Inline-edit provider, model, temperature, and other settings per run (API keys remain masked and non-editable)
-- **Criteria Editor** — Edit `criteria.yaml` directly in the browser with YAML validation
-- **Prompt Editor** — Edit all 4 prompt templates (extractor/synthesizer system/user) with template variable hints
-- **Literature Sources Editor** — Edit `literature_sources.yaml` with YAML validation
-- **Model Costs Editor** — Maintain custom token pricing for models litellm doesn't know (e.g., new DeepSeek releases) with model cost lookup
-- **Batch Processing** — "Batch Run" button to sequentially process all run directories with a progress overview
-- **Results Table** — Sortable table with scores, recommendations, cost, and one-click review viewing
-- **Review Viewer** — Modal viewer with rendered Markdown for individual paper reviews
-
-### Dashboard Tabs
-
-| Tab | Description |
-|-----|-------------|
-| Config | Inline-editable `.env` settings (providers, models, temperatures, etc.) |
-| Criteria | Full YAML editor for review criteria with save/reload and validation |
-| Prompts | Select and edit prompt templates with template variable reference |
-| Sources | YAML editor for literature source configuration |
-| Costs | Custom model token pricing ($/million tokens) for accurate cost tracking |
-
-### CLI vs Web Dashboard
-
-The web dashboard covers common workflows. Some advanced features require the CLI:
-
-| Capability | CLI | Web |
-|------------|-----|-----|
-| Single-directory review | Yes | Yes |
-| Literature-grounded review | Yes | Yes |
-| Sequential batch processing | Yes | Yes |
-| Parallel batch (`--parallel --max-workers`) | Yes | No |
-| Batch setup & paper distribution | Yes | No — use `setup_batch_runs.py` |
-| No-cache mode (force re-processing) | Yes | No — delete `progress.json` |
-| Provider override flags (`--provider-*`) | Yes | Partial — edit `.env` in Config tab |
-| Automated conflict comparison | Yes | No — run `compare_reports.py` from CLI |
-| Retry & concurrency control | Yes | No |
-
-Use the dashboard for interactive reviews, configuration, and result browsing. Use the CLI for large-scale batch setup, parallel execution, and parameter sweeps.
-
-## Customization
-
-### Review Criteria
-
-Edit `my_review_run/input/criteria.yaml` to define what the system evaluates. Each criterion has an `id`, `name`, `description`, `weight`, and scoring `scale`. All weights must sum to 100.
-
-```yaml
-criteria:
-  - id: empirical_rigor
-    name: Empirical Rigor
-    description: |
-      Assesses the quality of the empirical methods, data,
-      and execution. Look for research design, causal
-      identification, and statistical analysis.
-    weight: 20
-    scale:
-      type: numeric
-      range: [1, 5]
-      labels:
-        1: "Fundamentally flawed"
-        2: "Significant weaknesses"
-        3: "Adequate"
-        4: "Strong and robust"
-        5: "Exceptional / state-of-the-art"
-```
-
-### Agent Prompts
-
-Edit the text files in `my_review_run/input/prompts/` to control agent behavior:
-
-| File | Controls |
-|------|----------|
-| `extractor_system.txt` | Specialist's role and analytical style |
-| `extractor_user.txt` | Extraction task and output schema |
-| `synthesizer_system.txt` | Editor's tone and editorial perspective |
-| `synthesizer_user.txt` | Synthesis task and review structure |
-
-### Recommendation Thresholds
-
-Default thresholds (configurable in `criteria.yaml`):
-
-| Score | Recommendation |
-|-------|---------------|
-| 85+ | Accept |
-| 70-84 | Accept with Revisions |
-| 50-69 | Revise and Resubmit |
-| <50 | Reject |
-
-### Domain Specialization
-
-Set the `domain` field in `criteria.yaml` to pivot the entire system to a new field (e.g., `machine_learning`, `clinical_psychology`).
-
-## Batch Processing
-
-Distribute large paper collections across multiple run directories:
-
-```bash
-python setup_batch_runs.py \
-  --master-papers-dir papers_master \
-  --base-run-dir run_dir \
-  --num-runs 10 \
-  --papers-per-run 50 \
-  --create-batch-script
-
-# Sequential
-python run_batch.py
-
-# Parallel
-python run_batch.py --parallel --max-workers 4
-```
-
-The system tracks progress per directory and resumes automatically after interruptions.
-
-## Supported LLM Providers
-
-All models are configurable via `.env` — no code changes needed when providers release new models.
-
-| Provider | Example Models |
-|----------|---------------|
-| OpenAI | gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano |
-| DeepSeek | deepseek-v4-pro, deepseek-v4-flash |
-| Gemini | gemini-3.5-flash, gemini-3.1-flash-lite |
-| Anthropic | claude-opus-4-8, claude-sonnet-4-6, claude-haiku-4-5 |
-| Perplexity | sonar, sonar-pro |
-| Custom/Ollama | Any OpenAI-compatible endpoint via `CUSTOM_OPENAI_API_BASE` |
-
-You can mix providers — e.g., DeepSeek for extraction, Gemini for judge, OpenAI for synthesis. Token limits are auto-detected via litellm; override per-role with `MAX_TOKENS_EXTRACTION`, `MAX_TOKENS_SYNTHESIS`, `MAX_TOKENS_JUDGE` in `.env`.
-
-## Literature Sources
-
-Configured in `config/literature_sources.yaml`:
-
-| Source | Requires API Key | Citation Data |
-|--------|-----------------|---------------|
-| Semantic Scholar | Optional (free tier: 100 req/min) | Yes |
-| Arxiv | No | No |
-| World Bank | No | No |
-
-## Troubleshooting
-
-| Issue | Fix |
-|-------|-----|
-| `FAILED criterion` / JSON error | Set `MAX_TOKENS_EXTRACTION=32768` in `.env` to increase output limit |
-| `Unsupported parameter: max_tokens` | Known issue with some endpoints; the custom_openai bypass handles this automatically |
-| `model isn't mapped yet` | Add the model to `_EXTRA_MODELS` in `core/llm_wrapper.py` or set the provider's `*_API_BASE` env var |
-| Re-parse papers | Delete `ingestion_cache.json` |
-| Re-review papers | Delete `progress.json` |
-| Re-adjudicate | Delete `judge_progress.json` |
-
-## Cost Estimation
-
-Each paper is evaluated per criterion (8 criteria = 8 extraction calls) plus one synthesis call, plus one call per conflict for the Judge.
-
-**Prompt caching** significantly reduces extraction costs: the paper content is placed in the system message prefix and cached across all criterion calls for the same paper. The first criterion pays full price; the remaining 7 hit the cache at up to 90% discount (Anthropic) or are auto-cached (OpenAI, DeepSeek). Criteria are extracted in parallel for each paper.
-
-Always test with 5-10 papers first to verify your criteria and estimate costs before committing to a full batch.
+---
 
 ## License
 
-[MIT](LICENSE)
+[MIT License](LICENSE)
