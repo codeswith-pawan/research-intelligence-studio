@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agentic Paper Review System</title>
+    <title>Research Intelligence Studio — AI-Assisted Peer Review</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -14,23 +14,27 @@
     <!-- Header / Application Shell (Screen A) -->
     <header class="header" role="banner">
         <div class="header-left">
+            <button type="button" id="sidebar-toggle-btn" class="header-tool-btn sidebar-mobile-toggle" aria-label="Toggle navigation menu" title="Toggle Navigation">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
             <div class="brand-block">
                 <div class="brand-mark" aria-hidden="true">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="2"/>
+                        <path d="M7 8H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M7 12H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M7 16H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                 </div>
                 <div class="brand-text">
                     <h1 class="brand-title">Research Intelligence Studio</h1>
-                    <span class="brand-subtitle">AI-Assisted Peer Review &middot; Evidence Verification System</span>
+                    <span class="brand-subtitle">AI-Powered Research Review &middot; Evidence Verification</span>
                 </div>
             </div>
             <div class="header-status-strip">
-                <div class="model-status-pill" title="Local Inference Engine - 100% Offline &amp; Private">
-                    <span class="status-dot online" aria-hidden="true"></span>
-                    <span class="model-label">Ollama &middot; llama3.2:3b</span>
+                <div id="ollama-status-pill" class="model-status-pill" title="Checking local inference service...">
+                    <span id="ollama-status-dot" class="status-dot checking" aria-hidden="true"></span>
+                    <span id="ollama-status-text" class="model-label">Checking Ollama...</span>
                 </div>
                 <div id="active-run-pill" class="active-run-pill" title="Currently Selected Workspace Run">
                     <span class="run-dot" aria-hidden="true"></span>
@@ -39,64 +43,117 @@
             </div>
         </div>
         <div class="header-right">
-            <select id="run-selector" class="select-input" aria-label="Select run directory">
-                <option value="">Select run directory...</option>
-            </select>
-            <select id="mode-selector" class="select-input" aria-label="Select execution mode">
-                <option value="standard">Standard Review</option>
-                <option value="literature">Literature-Grounded</option>
-            </select>
-            <button id="start-btn" class="btn btn-primary" disabled>Start Review</button>
-            <button id="stop-btn" class="btn btn-danger" style="display:none">Stop</button>
-            <button id="batch-btn" class="btn btn-secondary" title="Run all directories sequentially">Batch Run</button>
-            <button id="batch-stop-btn" class="btn btn-danger" style="display:none">Stop Batch</button>
+            <!-- Mobile Actions Menu Toggle (visible only below 640px) -->
+            <button type="button" id="mobile-actions-toggle" class="header-tool-btn mobile-only-btn" title="Run &amp; Review Actions" aria-label="Toggle Actions Menu" aria-expanded="false" aria-controls="header-run-controls">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
+            </button>
+
+            <!-- Execution & Run Action Controls (inline on desktop/tablet, expandable on mobile) -->
+            <div id="header-run-controls" class="header-run-controls" role="region" aria-label="Review Actions">
+                <button type="button" id="cmd-palette-btn" class="cmd-k-trigger" title="Command Palette (Cmd+K)">
+                    <span class="cmd-k-key">⌘K</span>
+                    <span>Actions</span>
+                </button>
+                <select id="run-selector" class="select-input" aria-label="Select run directory">
+                    <option value="">Select run directory...</option>
+                </select>
+                <select id="mode-selector" class="select-input" aria-label="Select execution mode">
+                    <option value="standard">Standard Review</option>
+                    <option value="literature">Literature-Grounded</option>
+                </select>
+                <button id="start-btn" class="btn btn-primary" disabled>Start Review</button>
+                <button id="stop-btn" class="btn btn-danger" style="display:none">Stop</button>
+                <button id="batch-btn" class="btn btn-secondary" title="Run all directories sequentially">Batch Run</button>
+                <button id="batch-stop-btn" class="btn btn-danger" style="display:none">Stop Batch</button>
+            </div>
+
+            <!-- Help Button -->
+            <button type="button" id="help-modal-trigger" class="header-tool-btn" title="Academic Review Guidelines &amp; Help" aria-label="Review Guidelines">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+
+            <!-- User Profile Area -->
+            <div class="user-profile-badge" id="user-profile-badge" title="Academic Peer Reviewer">
+                <span class="avatar-circle">PR</span>
+                <span class="user-name">Reviewer</span>
+            </div>
+
+            <button type="button" id="theme-toggle-btn" class="header-tool-btn" title="Toggle Theme" aria-label="Toggle Theme">
+                <svg id="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                <svg id="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            </button>
+            <button type="button" id="header-config-toggle" class="header-tool-btn" title="Toggle Configuration Drawer" aria-label="Toggle Configuration Drawer" aria-expanded="false" aria-controls="config-panel">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+            </button>
         </div>
     </header>
 
-    <!-- Persistent Top Navigation (Phase 8 Dedicated Navigation) -->
-    <nav class="app-top-nav" aria-label="Main application destinations">
-        <div class="nav-container">
-            <div class="nav-links" role="tablist">
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+
+    <div class="app-shell">
+        <!-- Paperpal Left Sidebar -->
+        <aside class="app-sidebar" id="app-sidebar" aria-label="Main Navigation">
+            <div class="sidebar-brand-section">
+                <span class="sidebar-brand-label">WORKSPACE</span>
+                <span class="sidebar-workspace-name">Research Review Studio</span>
+            </div>
+            <nav class="sidebar-nav app-top-nav" aria-label="Main application destinations">
                 <a href="#/overview" class="nav-item active" data-page="overview" role="tab" aria-selected="true" aria-current="page">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                     <span>System Overview</span>
                 </a>
                 <a href="#/paper-overview" class="nav-item" data-page="paper-overview" role="tab" aria-selected="false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
                     <span>Paper Overview</span>
                 </a>
                 <a href="#/upload" class="nav-item" data-page="upload" role="tab" aria-selected="false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <span>Upload Paper</span>
                 </a>
                 <a href="#/analysis" class="nav-item" data-page="analysis" role="tab" aria-selected="false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h5l3 7 4-14 3 7h5"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h5l3 7 4-14 3 7h5"/></svg>
                     <span>Analysis Studio</span>
                 </a>
                 <a href="#/reviews" class="nav-item" data-page="reviews" role="tab" aria-selected="false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                     <span>Past Reviews</span>
                     <span id="nav-reviews-count" class="nav-count-badge">0</span>
                 </a>
-            </div>
-            <div class="nav-secondary-strip">
-                <span class="cost-pill-label">Inference Engine:</span>
-                <span class="cost-pill-val">$0.00 USD (Local Ollama)</span>
-            </div>
-        </div>
-    </nav>
+            </nav>
 
-    <main class="main-content" id="main-content">
-        <!-- Left: Config Panel -->
-        <aside class="config-panel" id="config-panel">
-            <button class="panel-toggle" id="panel-toggle" title="Collapse panel">&lsaquo;</button>
-            <div class="sidebar-tabs">
-                <button class="sidebar-tab active" data-tab="config">Config</button>
-                <button class="sidebar-tab" data-tab="criteria">Criteria</button>
-                <button class="sidebar-tab" data-tab="prompts">Prompts</button>
-                <button class="sidebar-tab" data-tab="sources">Sources</button>
-                <button class="sidebar-tab" data-tab="costs">Costs</button>
+            <div class="sidebar-divider"></div>
+
+            <div class="sidebar-config-section">
+                <button type="button" id="sidebar-config-btn" class="sidebar-config-toggle-btn" aria-controls="config-panel" aria-expanded="false">
+                    <div class="sidebar-config-toggle-left">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                        <span>Configuration</span>
+                    </div>
+                    <svg class="sidebar-config-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
             </div>
+            <div class="sidebar-footer">
+                <div class="sidebar-privacy-badge">
+                    <span class="privacy-dot"></span>
+                    <span>100% Local Inference &middot; Private</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Left: Config Panel Drawer (Off-canvas drawer, closed by default) -->
+        <aside class="config-panel" id="config-panel" aria-label="Configuration Drawer">
+            <div class="config-panel-header">
+                <h4>Engine Configuration</h4>
+                <button class="panel-toggle" id="panel-toggle" title="Collapse configuration panel">&times;</button>
+            </div>
+                <div class="sidebar-tabs">
+                    <button class="sidebar-tab active" data-tab="config">Config</button>
+                    <button class="sidebar-tab" data-tab="criteria">Criteria</button>
+                    <button class="sidebar-tab" data-tab="prompts">Prompts</button>
+                    <button class="sidebar-tab" data-tab="sources">Sources</button>
+                    <button class="sidebar-tab" data-tab="costs">Costs</button>
+                </div>
 
             <!-- Config Tab -->
             <div id="tab-config" class="tab-panel active">
@@ -179,17 +236,99 @@
             </div>
         </aside>
 
-        <!-- Right: Main panels -->
-        <div class="right-panels">
-            <!-- PAGE 1: SYSTEM OVERVIEW (Screen D / Route #/overview) -->
-            <div id="page-overview" class="page-view active" role="tabpanel" aria-label="System Overview">
-                <div class="overview-hero">
-                    <div class="overview-hero-content">
-                        <p class="overview-eyebrow">RESEARCH INTELLIGENCE PLATFORM</p>
-                        <h2 class="overview-hero-title">Scientific Manuscript Review &amp; Evidence Grounding</h2>
-                        <p class="overview-hero-desc">Offline, automated peer review diagnostics powered by local Ollama llama3.2:3b. Enforces strict quotation verification against original source manuscripts with zero cloud costs.</p>
+        <!-- Main Workspace -->
+        <main class="main-content" id="main-content">
+            <div class="right-panels">
+                <!-- PAGE 1: SYSTEM OVERVIEW (Screen D / Route #/overview) -->
+                <div id="page-overview" class="page-view active" role="tabpanel" aria-label="System Overview">
+                    <div class="overview-hero">
+                        <div class="overview-hero-content">
+                            <p class="overview-eyebrow">ACADEMIC RESEARCH INTELLIGENCE</p>
+                            <h2 class="overview-hero-title">Research paper review, made clearer.</h2>
+                            <p class="overview-hero-desc">Upload a research manuscript, evaluate it with AI, verify evidence, and generate a structured review report with actionable insights.</p>
+                        </div>
                     </div>
-                </div>
+
+                    <!-- Primary Document Upload Area (Paperpal-Inspired) -->
+                    <section class="dashboard-upload-hero" aria-label="Primary Paper Upload">
+                        <div class="dashboard-dropzone" id="dashboard-dropzone">
+                            <input type="file" id="dashboard-file-input" class="visually-hidden" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple>
+                            <div class="dropzone-icon-wrap" aria-hidden="true">
+                                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                            </div>
+                            <h3 class="dropzone-title">Upload your research paper</h3>
+                            <p class="dropzone-subtitle">Drag and drop your manuscript here, or browse files</p>
+                            <div class="dropzone-meta">
+                                <span class="format-pill">PDF &amp; DOCX supported</span>
+                                <span class="meta-dot">&middot;</span>
+                                <span>Max 20 MB per file</span>
+                            </div>
+                            <div class="dropzone-cta-row">
+                                <button type="button" id="dashboard-choose-btn" class="btn btn-primary dropzone-cta">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                                    <span>Choose File</span>
+                                </button>
+                            </div>
+                            <div id="dashboard-file-chip" class="dashboard-file-chip" style="display:none">
+                                <span class="file-chip-icon">📄</span>
+                                <span id="dashboard-chip-name" class="file-chip-name"></span>
+                                <span id="dashboard-chip-size" class="file-chip-size"></span>
+                                <button type="button" id="dashboard-chip-clear" class="file-chip-clear" title="Clear file">&times;</button>
+                                <button type="button" id="dashboard-chip-submit" class="btn btn-sm btn-primary">Start Review</button>
+                            </div>
+                            <div id="dashboard-upload-progress" class="dashboard-upload-progress" style="display:none">
+                                <div class="progress-bar-wrap">
+                                    <div id="dashboard-progress-fill" class="progress-bar-fill" style="width: 0%"></div>
+                                </div>
+                                <span id="dashboard-progress-text" class="progress-text">Uploading manuscript...</span>
+                            </div>
+                            <p id="dashboard-upload-msg" class="dashboard-upload-msg" role="status" aria-live="polite"></p>
+                        </div>
+                    </section>
+
+                    <!-- 4 Research Review Features -->
+                    <section class="overview-features-grid" aria-label="Review Core Capabilities">
+                        <div class="feature-card">
+                            <div class="feature-icon" aria-hidden="true">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            </div>
+                            <div class="feature-content">
+                                <h4>Research Quality</h4>
+                                <p>Evaluate contribution, originality, methodology, rigor, and impact.</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon" aria-hidden="true">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                            </div>
+                            <div class="feature-content">
+                                <h4>Evidence Grounding</h4>
+                                <p>Verify key statements using source evidence and quotations.</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon" aria-hidden="true">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            </div>
+                            <div class="feature-content">
+                                <h4>Section Analysis</h4>
+                                <p>Analyze problem statement, methodology, results, and conclusion.</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon" aria-hidden="true">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                            </div>
+                            <div class="feature-content">
+                                <h4>Audit &amp; Provenance</h4>
+                                <p>Review model details, run information, file hashes, and verification logs.</p>
+                            </div>
+                        </div>
+                    </section>
 
                 <div class="overview-metrics-grid">
                     <article class="overview-metric-card">
@@ -237,48 +376,16 @@
                     </article>
                 </div>
 
-                <div class="overview-actions-grid">
-                    <div class="overview-action-card">
-                        <div class="action-card-header">
-                            <span class="action-badge">New Run</span>
-                            <h4>Upload Research Manuscript</h4>
-                        </div>
-                        <p>Upload a new PDF or DOCX paper to create an isolated, reproducible evaluation run.</p>
-                        <a href="#/upload" class="btn btn-primary action-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            Upload Paper
-                        </a>
-                    </div>
-
-                    <div class="overview-action-card">
-                        <div class="action-card-header">
-                            <span class="action-badge">Deep Dive</span>
-                            <h4>Inspect Analysis Studio</h4>
-                        </div>
-                        <p>Examine the criteria score breakdown, exact quote matches, and academic section detection.</p>
-                        <a href="#/analysis" id="overview-resume-btn" class="btn btn-secondary action-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h5l3 7 4-14 3 7h5"/></svg>
-                            Open Analysis Studio
-                        </a>
-                    </div>
-
-                    <div class="overview-action-card">
-                        <div class="action-card-header">
-                            <span class="action-badge">Archive</span>
-                            <h4>Browse Review Archive</h4>
-                        </div>
-                        <p>Search all past evaluated papers, compare provisional recommendations, and export reports.</p>
-                        <a href="#/reviews" class="btn btn-secondary action-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                            Browse Past Reviews
-                        </a>
-                    </div>
-                </div>
-
                 <div class="overview-recent-section">
                     <div class="overview-section-header">
-                        <h3>Recent Evaluations</h3>
-                        <a href="#/reviews" class="overview-link">View all past runs &rarr;</a>
+                        <div>
+                            <span class="overview-section-eyebrow">HISTORICAL REVIEWS</span>
+                            <h3>Recent Evaluations</h3>
+                        </div>
+                        <div class="overview-section-actions">
+                            <a href="#/analysis" id="overview-resume-btn" class="overview-link">Open Analysis Studio &rarr;</a>
+                            <a href="#/reviews" class="overview-link">View all past runs &rarr;</a>
+                        </div>
                     </div>
                     <div class="recent-runs-table-wrap">
                         <table class="recent-runs-table">
@@ -315,6 +422,10 @@
                         </div>
                     </div>
                     <div class="paper-overview-header-right">
+                        <div class="po-run-select-wrap">
+                            <label for="po-run-select" class="po-select-label">Run:</label>
+                            <select id="po-run-select" class="select-input po-run-select" aria-label="Switch Manuscript Run"></select>
+                        </div>
                         <div id="paper-overview-status-pill" class="paper-overview-status-pill status-pill-not-generated">
                             <span class="status-indicator-dot"></span>
                             <span id="po-status-text">Not Generated</span>
@@ -322,6 +433,32 @@
                         <button id="po-generate-btn" class="btn btn-primary" disabled>Generate Overview</button>
                         <button id="po-regenerate-btn" class="btn btn-secondary" style="display:none">Regenerate</button>
                     </div>
+                </div>
+
+                <!-- Authoritative Review Diagnostics Strip (Links Paper Overview to Run Evaluation) -->
+                <div id="po-authoritative-strip" class="po-authoritative-strip" style="display:none">
+                    <div class="po-auth-metrics">
+                        <div class="po-auth-item">
+                            <span class="po-auth-label">Diagnostic Review Score</span>
+                            <strong id="po-auth-score" class="po-auth-value">—</strong>
+                        </div>
+                        <div class="po-auth-item">
+                            <span class="po-auth-label">Evidence Grounding</span>
+                            <strong id="po-auth-evidence" class="po-auth-value">—</strong>
+                        </div>
+                        <div class="po-auth-item">
+                            <span class="po-auth-label">Review Status</span>
+                            <span id="po-auth-status" class="identity-badge status-badge">—</span>
+                        </div>
+                        <div class="po-auth-item">
+                            <span class="po-auth-label">Selected Run</span>
+                            <code id="po-auth-run" class="po-auth-code">—</code>
+                        </div>
+                    </div>
+                    <p class="po-auth-disclaimer">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <span>Authoritative review evaluation metrics for this manuscript. Metrics cited inside section summaries below reflect the authors' own internal experiments on benchmark test cases.</span>
+                    </p>
                 </div>
 
                 <!-- Progress / Loading Banner -->
@@ -351,6 +488,35 @@
                     <div class="banner-text">
                         <strong>Manuscript on disk changed</strong>
                         <span>The source PDF content has changed since this overview was generated. Click regenerate to update.</span>
+                    </div>
+                </div>
+
+                <!-- Ready to Generate Card when run is selected but overview not generated -->
+                <div id="paper-overview-ready-card" class="paper-overview-card ready-to-generate-card" style="display:none">
+                    <div class="ready-gen-header">
+                        <div class="ready-gen-icon" aria-hidden="true">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        </div>
+                        <div class="ready-gen-text">
+                            <h3>Manuscript Ready for Overview Extraction</h3>
+                            <p>Generate an 8-dimension structured academic synthesis summarizing research motivation, questions, methodology, contributions, and critical findings.</p>
+                        </div>
+                    </div>
+                    <div class="dimensions-preview-grid">
+                        <div class="dim-chip"><strong>1</strong> Research Problem</div>
+                        <div class="dim-chip"><strong>2</strong> Objectives &amp; Questions</div>
+                        <div class="dim-chip"><strong>3</strong> Methodology</div>
+                        <div class="dim-chip"><strong>4</strong> Main Contributions</div>
+                        <div class="dim-chip"><strong>5</strong> Key Findings</div>
+                        <div class="dim-chip"><strong>6</strong> Limitations</div>
+                        <div class="dim-chip"><strong>7</strong> Practical Implications</div>
+                        <div class="dim-chip"><strong>8</strong> Future Directions</div>
+                    </div>
+                    <div class="ready-gen-actions">
+                        <button type="button" id="po-ready-generate-btn" class="btn btn-primary btn-generate-overview-action">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <span>Generate Structured Paper Overview</span>
+                        </button>
                     </div>
                 </div>
 
@@ -455,7 +621,9 @@
             <div id="page-upload" class="page-view" style="display:none" role="tabpanel" aria-label="Upload Manuscript">
                 <section class="upload-panel">
                     <div class="upload-panel-heading">
-                        <div class="upload-icon" aria-hidden="true">↑</div>
+                        <div class="upload-icon" aria-hidden="true">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
                         <div>
                             <p class="upload-eyebrow">NEW REVIEW RUN</p>
                             <h2>Review a Research Paper</h2>
@@ -464,12 +632,15 @@
                     </div>
                     <form id="upload-form" class="upload-form">
                         <label class="file-dropzone" for="paper-file">
-                            <span class="file-dropzone-icon" aria-hidden="true">↥</span>
+                            <span class="file-dropzone-icon" aria-hidden="true">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+                            </span>
                             <span class="file-dropzone-title">Choose a research paper</span>
                             <span class="file-dropzone-hint">PDF or DOCX · Max 20 MB · Select a file from your device</span>
                             <span id="selected-file-name" class="selected-file-name">No file selected</span>
                             <input
                                 id="paper-file"
+                                class="visually-hidden"
                                 type="file"
                                 accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                 multiple
@@ -543,6 +714,134 @@
                     <p id="upload-status" class="upload-status" role="status" aria-live="polite">
                         Your existing reports will be preserved.
                     </p>
+                </section>
+
+                <!-- Live Processing Studio (Active during Review) -->
+                <section id="upload-processing-studio" class="upload-processing-studio" style="display:none;" aria-live="polite">
+                    <div class="processing-studio-header">
+                        <div class="processing-header-left">
+                            <span class="processing-eyebrow">ACTIVE INFERENCE ENGINE</span>
+                            <h3 id="proc-paper-title">Processing Manuscript...</h3>
+                            <p id="proc-stage-caption" class="processing-caption">Running automated agentic peer review with local Ollama inference...</p>
+                        </div>
+                        <div class="processing-header-metrics">
+                            <div class="proc-metric-pill">
+                                <span class="proc-metric-lbl">Elapsed</span>
+                                <span id="proc-elapsed" class="proc-metric-val">0s</span>
+                            </div>
+                            <div class="proc-metric-pill">
+                                <span class="proc-metric-lbl">Cost</span>
+                                <span class="proc-metric-val text-success">$0.00 USD</span>
+                            </div>
+                            <div class="proc-metric-pill">
+                                <span class="proc-metric-lbl">Model</span>
+                                <span class="proc-metric-val">llama3.2:3b</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Holographic Document Scanner Animation -->
+                    <div class="scanner-stage-container">
+                        <div class="scanner-card">
+                            <div class="scanner-doc-icon">📄</div>
+                            <div class="scanner-beam"></div>
+                            <div class="scanner-doc-meta">
+                                <span id="scanner-doc-name" class="scanner-filename">manuscript.pdf</span>
+                                <span id="scanner-doc-status" class="scanner-status-text">Analyzing structure &amp; extracting text...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 8 Real Processing Stages Sequence -->
+                    <div class="processing-stages-grid">
+                        <div class="proc-stage-item" id="proc-stage-1" data-stage="upload">
+                            <div class="proc-stage-icon"><span class="stage-num">1</span></div>
+                            <div class="proc-stage-info">
+                                <strong>Uploading Document</strong>
+                                <small>Secure sandbox isolation</small>
+                            </div>
+                            <span class="proc-stage-badge" id="proc-badge-1">Pending</span>
+                        </div>
+                        <div class="proc-stage-item" id="proc-stage-2" data-stage="extraction_text">
+                            <div class="proc-stage-icon"><span class="stage-num">2</span></div>
+                            <div class="proc-stage-info">
+                                <strong>Extracting Text</strong>
+                                <small>PyMuPDF stream parser</small>
+                            </div>
+                            <span class="proc-stage-badge" id="proc-badge-2">Pending</span>
+                        </div>
+                        <div class="proc-stage-item" id="proc-stage-3" data-stage="sections">
+                            <div class="proc-stage-icon"><span class="stage-num">3</span></div>
+                            <div class="proc-stage-info">
+                                <strong>Identifying Research Sections</strong>
+                                <small>Structural headings mapping</small>
+                            </div>
+                            <span class="proc-stage-badge" id="proc-badge-3">Pending</span>
+                        </div>
+                        <div class="proc-stage-item" id="proc-stage-4" data-stage="methodology">
+                            <div class="proc-stage-icon"><span class="stage-num">4</span></div>
+                            <div class="proc-stage-info">
+                                <strong>Analyzing Methodology</strong>
+                                <small>Supplemental quality checks</small>
+                            </div>
+                            <span class="proc-stage-badge" id="proc-badge-4">Pending</span>
+                        </div>
+                        <div class="proc-stage-item" id="proc-stage-5" data-stage="evidence">
+                            <div class="proc-stage-icon"><span class="stage-num">5</span></div>
+                            <div class="proc-stage-info">
+                                <strong>Checking Evidence</strong>
+                                <small>Exact quote verification</small>
+                            </div>
+                            <span class="proc-stage-badge" id="proc-badge-5">Pending</span>
+                        </div>
+                        <div class="proc-stage-item" id="proc-stage-6" data-stage="quality">
+                            <div class="proc-stage-icon"><span class="stage-num">6</span></div>
+                            <div class="proc-stage-info">
+                                <strong>Evaluating Research Quality</strong>
+                                <small>8-criteria weighted scoring</small>
+                            </div>
+                            <span class="proc-stage-badge" id="proc-badge-6">Pending</span>
+                        </div>
+                        <div class="proc-stage-item" id="proc-stage-7" data-stage="synthesis">
+                            <div class="proc-stage-icon"><span class="stage-num">7</span></div>
+                            <div class="proc-stage-info">
+                                <strong>Generating Review</strong>
+                                <small>Synthesizer agent &amp; recommendations</small>
+                            </div>
+                            <span class="proc-stage-badge" id="proc-badge-7">Pending</span>
+                        </div>
+                        <div class="proc-stage-item" id="proc-stage-8" data-stage="report">
+                            <div class="proc-stage-icon"><span class="stage-num">8</span></div>
+                            <div class="proc-stage-info">
+                                <strong>Preparing Final Report</strong>
+                                <small>Audit provenance &amp; exports</small>
+                            </div>
+                            <span class="proc-stage-badge" id="proc-badge-8">Pending</span>
+                        </div>
+                    </div>
+
+                    <!-- Overall Processing Progress Bar -->
+                    <div class="proc-progress-wrapper">
+                        <div class="proc-progress-bar-bg">
+                            <div id="proc-progress-bar-fill" class="proc-progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+                        <div class="proc-progress-caption">
+                            <span id="proc-progress-percent">0% Completed</span>
+                            <span id="proc-progress-eta">Estimating time remaining...</span>
+                        </div>
+                    </div>
+
+                    <!-- Completion Card (Shown when finished) -->
+                    <div id="proc-completion-card" class="proc-completion-card" style="display:none;">
+                        <div class="completion-icon">✓</div>
+                        <div class="completion-text">
+                            <h4>Manuscript Review Complete</h4>
+                            <p>Evaluation synthesized and evidence quotations grounded against source manuscript.</p>
+                        </div>
+                        <button type="button" id="proc-view-results-btn" class="btn btn-primary">
+                            Explore Analysis &amp; Report &rarr;
+                        </button>
+                    </div>
                 </section>
 
                 <!-- Staged Batch Queue Section on Upload View (Phase 3) -->
@@ -709,7 +1008,9 @@
                         </nav>
 
                         <div id="dashboard-state-banner" class="dashboard-state-banner">
-                            <span id="dashboard-state-icon" class="dashboard-state-icon" aria-hidden="true">!</span>
+                            <span id="dashboard-state-icon" class="dashboard-state-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            </span>
                             <div>
                                 <h3 id="dashboard-state-title"></h3>
                                 <p id="dashboard-state-description"></p>
@@ -724,8 +1025,14 @@
                                     <span id="metric-score-label">Diagnostic Score</span>
                                     <span class="metric-badge heuristic-badge">Heuristic</span>
                                 </div>
-                                <div class="metric-value-wrap">
-                                    <strong id="dashboard-score" class="review-metric-value">—</strong>
+                                <div class="score-radial-container">
+                                    <svg class="score-radial-svg" viewBox="0 0 100 100" aria-hidden="true">
+                                        <circle class="score-radial-bg" cx="50" cy="50" r="42" />
+                                        <circle id="dashboard-score-circle" class="score-radial-fill" cx="50" cy="50" r="42" stroke-dasharray="263.89" stroke-dashoffset="263.89" />
+                                    </svg>
+                                    <div class="metric-value-wrap score-radial-center">
+                                        <strong id="dashboard-score" class="review-metric-value">—</strong>
+                                    </div>
                                 </div>
                                 <div class="metric-track" aria-hidden="true"><span id="dashboard-score-fill"></span></div>
                                 <small class="metric-caption">Weighted algorithmic diagnostic &middot; Not a human peer review</small>
@@ -776,7 +1083,7 @@
                         </div>
 
                         <section id="dashboard-warnings" class="dashboard-warnings" hidden>
-                            <h3><span aria-hidden="true">!</span> Review warnings</h3>
+                            <h3><svg class="heading-icon warning-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Review Warnings</h3>
                             <ul id="dashboard-warning-list"></ul>
                         </section>
 
@@ -836,7 +1143,7 @@
                                     </div>
                                     <p class="chart-note">Only source-matched quotations count as verified evidence.</p>
                                     <div class="evidence-card-actions">
-                                        <button type="button" id="dashboard-view-evidence-btn" class="secondary-btn evidence-inspect-btn">
+                                        <button type="button" id="dashboard-view-evidence-btn" class="btn btn-sm btn-secondary evidence-inspect-btn" aria-label="Inspect Grounding Matrix">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                                             Inspect Grounding Matrix
                                         </button>
@@ -847,15 +1154,15 @@
 
                         <div class="review-notes-grid">
                             <section id="dashboard-strengths-card" class="dashboard-card review-notes-card strengths-card" hidden>
-                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Review synthesis</p><h3>Key Strengths</h3></div><span class="notes-icon" aria-hidden="true">↑</span></div>
+                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Review synthesis</p><h3>Key Strengths</h3></div><span class="notes-icon success" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span></div>
                                 <ul id="dashboard-strengths-list" class="review-notes-list"></ul>
                             </section>
                             <section id="dashboard-concerns-card" class="dashboard-card review-notes-card concerns-card" hidden>
-                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Review synthesis</p><h3>Concerns and Limitations</h3></div><span class="notes-icon" aria-hidden="true">!</span></div>
+                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Review synthesis</p><h3>Concerns and Limitations</h3></div><span class="notes-icon warning" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span></div>
                                 <ul id="dashboard-concerns-list" class="review-notes-list"></ul>
                             </section>
                             <section id="dashboard-suggestions-card" class="dashboard-card review-notes-card suggestions-card" hidden>
-                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Next steps</p><h3>Suggestions for Improvement</h3></div><span class="notes-icon" aria-hidden="true">↗</span></div>
+                                <div class="dashboard-card-heading"><div><p class="dashboard-eyebrow">Next steps</p><h3>Suggestions for Improvement</h3></div><span class="notes-icon info" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 16 16 12 12 8"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span></div>
                                 <ol id="dashboard-suggestions-list" class="review-notes-list"></ol>
                             </section>
                         </div>
@@ -1042,6 +1349,10 @@
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                                         <span>Print</span>
                                     </button>
+                                    <button type="button" id="btn-copy-findings" class="btn btn-sm btn-export" title="Copy review executive findings to clipboard">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                        <span>Copy</span>
+                                    </button>
                                 </div>
                                 <button class="modal-close" id="review-modal-close" title="Close review viewer">&times;</button>
                             </div>
@@ -1216,17 +1527,81 @@
                 </div>
             </div>
         </div>
+        <footer class="app-footer">
+            Research Intelligence Studio &middot; Academic Paper Review &amp; Evidence Grounding System &middot; 100% Offline
+        </footer>
     </main>
+    </div> <!-- /app-shell -->
 
     <!-- Log Panel -->
-    <section class="log-panel">
+    <section class="log-panel" style="display:none">
         <h2>Event Log</h2>
         <div id="log-content" class="log-content"></div>
     </section>
 
-    <footer class="app-footer">
-        Agentic Paper Review System &middot; UNU Campus Computing Centre &middot; Developed by Ng Chong
-    </footer>
+    <!-- Help / Academic Review Guidelines Modal -->
+    <div id="help-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
+        <div class="modal-content help-modal-content">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <div class="modal-title-wrap">
+                        <p class="modal-eyebrow">RESEARCH INTELLIGENCE STUDIO</p>
+                        <h3 id="help-modal-title">Academic Review &amp; Evidence Grounding Guidelines</h3>
+                    </div>
+                    <button class="modal-close" id="help-modal-close" aria-label="Close guidelines">&times;</button>
+                </div>
+            </div>
+            <div class="help-modal-body">
+                <div class="help-section">
+                    <h4>8-Dimension Evaluation Framework</h4>
+                    <p>Research manuscripts are evaluated across 8 academic criteria using a calibrated heuristic scoring engine:</p>
+                    <div class="help-criteria-list">
+                        <div class="help-crit-item"><strong>1. Originality &amp; Novelty</strong>: Uniqueness of hypotheses, conceptual framing, and contributions.</div>
+                        <div class="help-crit-item"><strong>2. Methodological Rigor</strong>: Soundness of mathematical formulation, validation, and baselines.</div>
+                        <div class="help-crit-item"><strong>3. Empirical Evidence</strong>: Verifiability of quantitative claims and benchmark results.</div>
+                        <div class="help-crit-item"><strong>4. Related Work</strong>: Comprehensive scholarly positioning and citation attribution.</div>
+                        <div class="help-crit-item"><strong>5. Clarity &amp; Structure</strong>: Scholarly exposition, flow, readability, and reproducibility.</div>
+                        <div class="help-crit-item"><strong>6. Statistical Validity</strong>: Proper reporting of variance, confidence, and sample size.</div>
+                        <div class="help-crit-item"><strong>7. Ethical Considerations</strong>: Data privacy, compute reporting, and research safety.</div>
+                        <div class="help-crit-item"><strong>8. Limitations &amp; Future Work</strong>: Candid disclosure of boundary constraints.</div>
+                    </div>
+                </div>
+                <div class="help-section">
+                    <h4>Strict Quotation Grounding Safety Gate</h4>
+                    <p>Every extracted claim must be verbatim-grounded in the original source manuscript PDF/DOCX. Unverified quotes trigger a <em>Needs Manual Review</em> safety gate to prevent LLM hallucinations from influencing the academic review.</p>
+                </div>
+                <div class="help-section">
+                    <h4>Keyboard Shortcuts</h4>
+                    <ul class="help-shortcuts-list">
+                        <li><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd>: Open Command Palette</li>
+                        <li><kbd>ESC</kbd>: Close open modals, drawers, and menus</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Command Palette (Raycast / Linear Style Floating Menu) -->
+    <div id="command-palette" class="command-palette-backdrop" style="display:none" role="dialog" aria-modal="true" aria-label="Command Palette">
+        <div class="command-palette-modal">
+            <div class="command-palette-header">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="command-palette-search" class="command-palette-input" placeholder="Type a command or search research papers..." autocomplete="off" spellcheck="false">
+                <button type="button" id="command-palette-close" class="modal-close" aria-label="Close command palette">&times;</button>
+            </div>
+            <div id="command-palette-results" class="command-palette-results">
+                <!-- Populated dynamically by app.js -->
+            </div>
+            <div class="command-palette-footer">
+                <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+                <span><kbd>↵</kbd> Select</span>
+                <span><kbd>ESC</kbd> Close</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Toast Notification Container -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
     <script src="/static/app.js"></script>
 </body>

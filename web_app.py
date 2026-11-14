@@ -504,7 +504,33 @@ def _find_run_dirs(include_deleted: bool = False) -> List[Dict[str, Any]]:
                 pass
 
         # Paper title: Only use real extracted title from metadata, CSV, or Markdown review.
-        # DO NOT fabricate or slug-derive a faux paper title from filename (Requirement 3).
+        # Clean out invalid section headings (such as 'Keywords' or 'Abstract')
+        INVALID_TITLES = {"keywords", "keyword", "abstract", "no title found", "untitled", "introduction", "none"}
+        if paper_title and (paper_title.strip().lower() in INVALID_TITLES or paper_title.strip().lower().startswith("keyword")):
+            paper_title = None
+
+        # If paper_title is not found or was invalid, attempt recovery from ingestion_cache.json
+        if not paper_title:
+            cache_paths = [
+                os.path.join(path, "ingestion_cache.json"),
+                os.path.join(path, "outputs", "ingestion_cache.json")
+            ]
+            for cp in cache_paths:
+                if os.path.isfile(cp):
+                    try:
+                        from core.paper_ingestor import extract_title_from_text
+                        with open(cp, "r", encoding="utf-8") as cf:
+                            cdata = json.load(cf)
+                        papers_list = cdata if isinstance(cdata, list) else list(cdata.values())
+                        if papers_list:
+                            raw_content = papers_list[0].get("content_markdown", "")
+                            rec_title = extract_title_from_text(raw_content)
+                            if rec_title and rec_title.strip().lower() not in INVALID_TITLES:
+                                paper_title = rec_title
+                                break
+                    except Exception:
+                        pass
+
         if not paper_title:
             paper_title = None
 
@@ -1084,6 +1110,92 @@ def _run_pipeline(run_dir: str, run_id: str, mode: str, config_overrides: Dict[s
 async def dashboard():
     with open(os.path.join(STATIC_DIR, "index.html")) as f:
         return f.read()
+
+
+def _match_ollama_model(configured: str, available_models: list) -> bool:
+    """
+    Rigorously match configured model against Ollama available models.
+    Ensures exact tag matching when a tag is specified (e.g. 'llama3.2:3b' does not match 'llama3.2:1b').
+    """
+    if not configured or not available_models:
+        return False
+
+    cfg = configured.strip().lower()
+    norm_models = [str(m).strip().lower() for m in available_models if m]
+
+    # 1. Exact match e.g. "llama3.2:3b" == "llama3.2:3b"
+    if cfg in norm_models:
+        return True
+
+    # 2. If no tag specified by user (e.g. "llama3.2"), Ollama convention is ":latest" or any valid tag
+    if ":" not in cfg:
+        if f"{cfg}:latest" in norm_models:
+            return True
+        if any(m.startswith(f"{cfg}:") for m in norm_models):
+            return True
+
+    return False
+
+
+@app.get("/api/health")
+async def health_check():
+    """
+    Check availability of the local Ollama inference service and configured model.
+    Does not expose sensitive API keys or credentials.
+    """
+    import urllib.request
+    import json
+    from urllib.parse import urlparse
+
+    configured_model = os.environ.get("EXTRACTOR_MODEL", "llama3.2:3b")
+    custom_base = os.environ.get("CUSTOM_OPENAI_API_BASE", "http://localhost:11434/v1/chat/completions")
+    try:
+        parsed = urlparse(custom_base)
+        ollama_host = f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else "http://localhost:11434"
+    except Exception:
+        ollama_host = "http://localhost:11434"
+
+    tags_url = f"{ollama_host}/api/tags"
+
+    try:
+        req = urllib.request.Request(tags_url, headers={"User-Agent": "ResearchIntelligenceStudio/1.0"})
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            models = [m.get("name", "") for m in data.get("models", [])]
+
+            model_found = _match_ollama_model(configured_model, models)
+
+            if model_found:
+                return {
+                    "status": "online",
+                    "service": "ollama",
+                    "model": configured_model,
+                    "available_models": models,
+                    "detail": f"Ollama online with {configured_model}",
+                }
+            else:
+                return {
+                    "status": "model_missing",
+                    "service": "ollama",
+                    "model": configured_model,
+                    "available_models": models,
+                    "detail": f"Model '{configured_model}' not found in local Ollama",
+                }
+    except Exception as e:
+        err_msg = str(e)
+        if "timed out" in err_msg.lower():
+            return {
+                "status": "timeout",
+                "service": "ollama",
+                "model": configured_model,
+                "detail": "Connection to Ollama service timed out",
+            }
+        return {
+            "status": "offline",
+            "service": "ollama",
+            "model": configured_model,
+            "detail": "Local Ollama service unreachable",
+        }
 
 
 @app.get("/api/runs")
@@ -2218,10 +2330,92 @@ def _run_overview_generation(run_dir: str, full_path: str, actual_file_hash: str
             }
 
 
+def _get_run_review_metrics(full_path: str, run_dir: str) -> Dict[str, Any]:
+    """Retrieve authoritative diagnostic score and quotation verification counts for a run."""
+    papers_dir = os.path.join(full_path, "papers")
+    paper_filename = None
+    file_hash = None
+    if os.path.isdir(papers_dir):
+        files = [f for f in os.listdir(papers_dir) if not f.startswith(".")]
+        if files:
+            paper_filename = files[0]
+            try:
+                from core.paper_overview import compute_file_sha256
+                file_hash = compute_file_sha256(os.path.join(papers_dir, files[0]))
+            except Exception:
+                pass
+
+    score = None
+    ver_count = 0
+    unv_count = 0
+    tot_count = 0
+    status = "Ready for Analysis"
+    prov_rec = None
+    paper_title = None
+
+    csvs = sorted(glob.glob(os.path.join(full_path, "outputs", "reports", "*.csv")), reverse=True)
+    if csvs:
+        try:
+            with open(csvs[0], "r", encoding="utf-8", errors="replace") as f:
+                row = next(csv.DictReader(f))
+                sc = row.get("overall_score")
+                if sc not in (None, "", "None", "N/A"):
+                    score = float(sc)
+                ver = row.get("verified_evidence_count")
+                unv = row.get("unverified_evidence_count")
+                if ver is not None and str(ver).isdigit():
+                    ver_count = int(ver)
+                if unv is not None and str(unv).isdigit():
+                    unv_count = int(unv)
+                tot_count = ver_count + unv_count
+                status = row.get("final_system_status") or row.get("recommendation") or "Completed"
+                prov_rec = row.get("provisional_recommendation")
+                raw_t = row.get("title", "").strip().strip("*").strip()
+                if raw_t and raw_t.lower() not in {"keywords", "keyword", "abstract", "untitled"}:
+                    paper_title = raw_t
+        except Exception:
+            pass
+
+    if not paper_title:
+        cache_p = os.path.join(full_path, "ingestion_cache.json")
+        if os.path.isfile(cache_p):
+            try:
+                from core.paper_ingestor import extract_title_from_text
+                with open(cache_p, "r", encoding="utf-8") as cf:
+                    cdata = json.load(cf)
+                plist = cdata if isinstance(cdata, list) else list(cdata.values())
+                if plist and plist[0].get("content_markdown"):
+                    t = extract_title_from_text(plist[0]["content_markdown"])
+                    if t and t.lower() not in {"keywords", "keyword", "abstract", "untitled", "no title found"}:
+                        paper_title = t
+            except Exception:
+                pass
+
+    if not paper_title and paper_filename:
+        clean_fn = re.sub(r"\.(pdf|docx)$", "", paper_filename, flags=re.IGNORECASE).replace("_", " ").strip()
+        paper_title = clean_fn if len(clean_fn) > 3 else "Title not identified"
+    elif not paper_title:
+        paper_title = "Title not identified"
+
+    return {
+        "run_id": run_dir,
+        "manuscript_filename": paper_filename or "manuscript.pdf",
+        "paper_title": paper_title,
+        "file_hash_sha256": file_hash or "",
+        "diagnostic_score": score,
+        "verified_quotations": ver_count,
+        "unverified_quotations": unv_count,
+        "total_quotations": tot_count,
+        "review_status": status,
+        "provisional_recommendation": prov_rec,
+    }
+
+
 @app.get("/api/overview/{run_dir:path}")
 async def get_paper_overview(run_dir: str):
     """Read-only endpoint to inspect paper overview for a run. Never triggers generation or writes files."""
     full_path = _resolve_run_path(run_dir, allow_deleted=False)
+    review_metrics = _get_run_review_metrics(full_path, run_dir)
 
     papers_dir = os.path.join(full_path, "papers")
     actual_hash = None
@@ -2232,15 +2426,26 @@ async def get_paper_overview(run_dir: str):
 
     cached_data, cache_status = load_paper_overview_cache(full_path, expected_sha256=actual_hash)
     if cache_status == "valid" and cached_data is not None:
+        ov_dict = cached_data.model_dump()
+        cur_title = str(ov_dict.get("metadata", {}).get("title") or "").strip()
+        INVALID_TITLES = {"keywords", "keyword", "abstract", "untitled", "no title found", "none"}
+        if cur_title.lower() in INVALID_TITLES or cur_title.lower().startswith("keyword") or not cur_title:
+            if review_metrics.get("paper_title") and review_metrics["paper_title"] != "Title not identified":
+                ov_dict["metadata"]["title"] = review_metrics["paper_title"]
+            else:
+                ov_dict["metadata"]["title"] = "Title not identified"
+        ov_dict["authoritative_review"] = review_metrics
         return {
             "status": "cached",
             "run_dir": run_dir,
-            "overview": cached_data.model_dump(),
+            "overview": ov_dict,
+            "authoritative_review": review_metrics,
         }
     if cache_status == "stale":
         return {
             "status": "stale",
             "run_dir": run_dir,
+            "authoritative_review": review_metrics,
             "message": "Manuscript on disk has changed. Cache is stale; please generate a fresh overview.",
         }
 
@@ -2254,6 +2459,7 @@ async def get_paper_overview(run_dir: str):
                 "run_dir": run_dir,
                 "stage": job.get("stage", "Processing"),
                 "progress": job.get("progress", 0),
+                "authoritative_review": review_metrics,
             }
         if job["status"] == "failed":
             return {
@@ -2261,17 +2467,23 @@ async def get_paper_overview(run_dir: str):
                 "run_dir": run_dir,
                 "stage": "Failed",
                 "error": job.get("error", "Unknown generation error"),
+                "authoritative_review": review_metrics,
             }
         if job["status"] == "completed" and job.get("overview"):
+            ov_data = job["overview"]
+            if isinstance(ov_data, dict):
+                ov_data["authoritative_review"] = review_metrics
             return {
                 "status": "cached",
                 "run_dir": run_dir,
-                "overview": job["overview"],
+                "overview": ov_data,
+                "authoritative_review": review_metrics,
             }
 
     return {
         "status": "not_generated",
         "run_dir": run_dir,
+        "authoritative_review": review_metrics,
         "message": "Paper overview has not been generated for this run yet.",
     }
 
@@ -2362,13 +2574,30 @@ async def get_evidence(run_dir: str, paper_filename: str):
     """Return saved evidence records for a paper."""
     full_path = _resolve_run_path(run_dir)
     safe_name = Path(paper_filename).stem
-    evidence_path = (
-        Path(full_path) / "outputs" / "evidence" / f"{safe_name}_evidence.json"
-    ).resolve()
-
     evidence_dir = (Path(full_path) / "outputs" / "evidence").resolve()
+    evidence_path = (evidence_dir / f"{safe_name}_evidence.json").resolve()
+
     if not str(evidence_path).startswith(str(evidence_dir) + os.sep):
         raise HTTPException(status_code=403, detail="Access denied")
+
+    # If direct match not found, check papers directory or evidence directory for candidates
+    if not evidence_path.is_file() and evidence_dir.is_dir():
+        papers_dir = Path(full_path) / "papers"
+        if papers_dir.is_dir():
+            for p in papers_dir.iterdir():
+                if p.is_file() and (safe_name.startswith(p.stem) or p.stem.startswith(safe_name)):
+                    candidate = evidence_dir / f"{p.stem}_evidence.json"
+                    if candidate.is_file():
+                        evidence_path = candidate
+                        paper_filename = p.name
+                        break
+        if not evidence_path.is_file():
+            for ev in evidence_dir.iterdir():
+                if ev.is_file() and ev.name.endswith("_evidence.json"):
+                    ev_stem = ev.name[:-len("_evidence.json")]
+                    if safe_name.startswith(ev_stem) or ev_stem.startswith(safe_name):
+                        evidence_path = ev
+                        break
 
     if not evidence_path.is_file():
         return {"paper_filename": paper_filename, "evidence": []}
@@ -2404,6 +2633,47 @@ async def get_evidence(run_dir: str, paper_filename: str):
             pass
 
     return {"paper_filename": paper_filename, "evidence": records}
+
+
+@app.get("/api/evidence-for-review/{run_dir:path}/{review_filename:path}")
+async def get_evidence_for_review(run_dir: str, review_filename: str, request: Request):
+    """Find the original paper evidence for a review filename."""
+    from urllib.parse import unquote
+
+    raw_path = request.scope.get("raw_path", b"").decode("latin-1").lower()
+    decoded_path = unquote(raw_path)
+    if "%2f" in raw_path or "%5c" in raw_path or "/../" in decoded_path:
+        raise HTTPException(status_code=400, detail="Invalid review filename")
+
+    full_path = Path(_resolve_run_path(run_dir))
+    safe_review_name = Path(review_filename).name
+    if safe_review_name != review_filename or not safe_review_name.endswith(".md"):
+        raise HTTPException(status_code=400, detail="Invalid review filename")
+
+    papers_dir = full_path / "papers"
+    evidence_dir = full_path / "outputs" / "evidence"
+
+    # Strategy 1: Check papers dir for prefix match
+    if papers_dir.is_dir():
+        candidates = [
+            paper for paper in papers_dir.iterdir()
+            if paper.is_file()
+            and paper.suffix.lower() in {".pdf", ".docx"}
+            and safe_review_name.startswith(paper.stem)
+        ]
+        if candidates:
+            original_paper = max(candidates, key=lambda item: len(item.stem))
+            return await get_evidence(run_dir, original_paper.name)
+
+    # Strategy 2: Check evidence dir directly
+    if evidence_dir.is_dir():
+        for ev in evidence_dir.iterdir():
+            if ev.is_file() and ev.name.endswith("_evidence.json"):
+                ev_stem = ev.name[:-len("_evidence.json")]
+                if safe_review_name.startswith(ev_stem):
+                    return await get_evidence(run_dir, ev_stem)
+
+    return {"paper_filename": safe_review_name, "evidence": []}
 
 
 @app.get("/api/section-analysis/{run_dir:path}/{paper_filename}")

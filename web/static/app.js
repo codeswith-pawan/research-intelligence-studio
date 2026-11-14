@@ -188,7 +188,7 @@ function handleRouting() {
     });
 
     // Update navigation active tabs
-    document.querySelectorAll(".app-top-nav .nav-item").forEach(link => {
+    document.querySelectorAll(".nav-item").forEach(link => {
         const linkHref = link.getAttribute("href");
         if (linkHref === pageKey) {
             link.classList.add("active");
@@ -201,13 +201,21 @@ function handleRouting() {
         }
     });
 
+    // Close configuration drawer on page navigation so it does not obstruct content
+    closeConfigPanel();
+
     if (pageKey === "#/overview") {
         renderOverviewStats();
     } else if (pageKey === "#/paper-overview") {
         if (targetRun && targetRun !== currentRunDir) {
+            currentRunDir = targetRun;
             if (runSelector) runSelector.value = targetRun;
             onRunSelected();
-        } else if (!currentRunDir && runSelector && runSelector.value) {
+        } else if (!currentRunDir && allRunsList.length > 0) {
+            // Automatically select a completed run (or latest run) when entering Paper Overview without explicit selection
+            const completedRun = allRunsList.find(r => r.has_output) || allRunsList[0];
+            currentRunDir = completedRun.name;
+            if (runSelector) runSelector.value = currentRunDir;
             onRunSelected();
         } else if (currentRunDir) {
             loadPaperOverview(currentRunDir);
@@ -220,14 +228,31 @@ function handleRouting() {
         renderReviewsArchive();
         fetchBatchQueue();
     } else if (pageKey === "#/analysis") {
-        if (targetRun && targetRun !== currentRunDir) {
-            if (runSelector) runSelector.value = targetRun;
+        const emptyState = document.getElementById("analysis-empty-state");
+        const runContainer = document.getElementById("analysis-run-container");
+        if (targetRun) {
+            if (targetRun !== currentRunDir) {
+                currentRunDir = targetRun;
+                if (runSelector) runSelector.value = targetRun;
+                onRunSelected();
+            } else {
+                if (emptyState) emptyState.style.display = "none";
+                if (runContainer) runContainer.style.display = "block";
+                loadResults();
+            }
+        } else if (!currentRunDir && allRunsList.length > 0) {
+            // Automatically select a completed run (or latest run) when entering Analysis Studio
+            const completedRun = allRunsList.find(r => r.has_output) || allRunsList[0];
+            currentRunDir = completedRun.name;
+            if (runSelector) runSelector.value = currentRunDir;
+            if (emptyState) emptyState.style.display = "none";
+            if (runContainer) runContainer.style.display = "block";
             onRunSelected();
-        } else if (!currentRunDir && runSelector && runSelector.value) {
-            onRunSelected();
-        } else if (!currentRunDir) {
-            const emptyState = document.getElementById("analysis-empty-state");
-            const runContainer = document.getElementById("analysis-run-container");
+        } else if (currentRunDir) {
+            if (emptyState) emptyState.style.display = "none";
+            if (runContainer) runContainer.style.display = "block";
+            loadResults();
+        } else {
             if (emptyState) emptyState.style.display = "flex";
             if (runContainer) runContainer.style.display = "none";
         }
@@ -311,8 +336,10 @@ function showPaperOverviewUnselected() {
     const staleBanner = document.getElementById("paper-overview-stale-banner");
     const absCard = document.getElementById("paper-overview-abstract-card");
     const secGrid = document.getElementById("paper-overview-sections-grid");
+    const readyCard = document.getElementById("paper-overview-ready-card");
 
     if (unselected) unselected.style.display = "block";
+    if (readyCard) readyCard.style.display = "none";
     if (absCard) absCard.style.display = "none";
     if (secGrid) secGrid.style.display = "none";
     if (progBanner) progBanner.style.display = "none";
@@ -359,10 +386,22 @@ async function loadPaperOverview(runDir) {
     // Clear placeholder
     if (unselected) unselected.style.display = "none";
 
+    const poSelect = document.getElementById("po-run-select");
+    if (poSelect && runDir) {
+        poSelect.value = runDir;
+    }
+
     // Set initial title/metadata from allRunsList if available
+    const INVALID_TITLES = ["keywords", "keyword", "abstract", "untitled", "no title found", "none", "title not identified", "not identified", "introduction", "references"];
     const runInfo = allRunsList.find(r => r.name === runDir);
+    let safeTitle = "Title not identified";
+    if (runInfo && runInfo.paper_title && !INVALID_TITLES.includes(runInfo.paper_title.toLowerCase().trim())) {
+        safeTitle = runInfo.paper_title;
+    } else if (runInfo && runInfo.original_filename) {
+        safeTitle = runInfo.original_filename;
+    }
     if (titleEl) {
-        titleEl.textContent = (runInfo && (runInfo.paper_title || runInfo.original_filename)) || runDir;
+        titleEl.textContent = safeTitle;
     }
     const fn = document.getElementById("po-meta-filename");
     if (fn) fn.textContent = `File: ${runInfo ? (runInfo.original_filename || runInfo.safe_filename || "manuscript.pdf") : "manuscript.pdf"}`;
@@ -398,6 +437,7 @@ function applyOverviewState(runDir, data) {
     const staleBanner = document.getElementById("paper-overview-stale-banner");
     const absCard = document.getElementById("paper-overview-abstract-card");
     const secGrid = document.getElementById("paper-overview-sections-grid");
+    const readyCard = document.getElementById("paper-overview-ready-card");
 
     if (unselected) unselected.style.display = "none";
 
@@ -412,9 +452,10 @@ function applyOverviewState(runDir, data) {
         if (progBanner) progBanner.style.display = "none";
         if (errBanner) errBanner.style.display = "none";
         if (staleBanner) staleBanner.style.display = "none";
+        if (readyCard) readyCard.style.display = "none";
 
         if (data.overview) {
-            renderPaperOverviewData(data.overview);
+            renderPaperOverviewData(data.overview, data.authoritative_review);
             if (absCard) absCard.style.display = "block";
             if (secGrid) secGrid.style.display = "grid";
         }
@@ -427,6 +468,7 @@ function applyOverviewState(runDir, data) {
         if (progBanner) progBanner.style.display = "none";
         if (errBanner) errBanner.style.display = "none";
         if (staleBanner) staleBanner.style.display = "flex";
+        if (readyCard) readyCard.style.display = "none";
 
         if (data.overview) {
             renderPaperOverviewData(data.overview);
@@ -440,6 +482,7 @@ function applyOverviewState(runDir, data) {
         if (regenBtn) { regenBtn.style.display = "none"; regenBtn.disabled = true; }
         if (errBanner) errBanner.style.display = "none";
         if (staleBanner) staleBanner.style.display = "none";
+        if (readyCard) readyCard.style.display = "none";
         if (progBanner) {
             progBanner.style.display = "flex";
             const stageEl = document.getElementById("po-progress-stage");
@@ -457,6 +500,7 @@ function applyOverviewState(runDir, data) {
         if (regenBtn) regenBtn.style.display = "none";
         if (progBanner) progBanner.style.display = "none";
         if (staleBanner) staleBanner.style.display = "none";
+        if (readyCard) readyCard.style.display = "none";
         if (errBanner) {
             errBanner.style.display = "flex";
             const msgEl = document.getElementById("po-error-message");
@@ -474,6 +518,13 @@ function applyOverviewState(runDir, data) {
         if (staleBanner) staleBanner.style.display = "none";
         if (absCard) absCard.style.display = "none";
         if (secGrid) secGrid.style.display = "none";
+        if (readyCard) {
+            readyCard.style.display = "block";
+            const actionBtn = document.getElementById("po-ready-generate-btn");
+            if (actionBtn) {
+                actionBtn.onclick = () => triggerGenerateOverview(runDir, false);
+            }
+        }
     }
 }
 
@@ -547,16 +598,36 @@ async function triggerGenerateOverview(runDir, force = false) {
     }
 }
 
-function renderPaperOverviewData(ov) {
+function renderPaperOverviewData(ov, authoritativeReview = null) {
     if (!ov) return;
+    const INVALID_TITLES = ["keywords", "keyword", "abstract", "untitled", "no title found", "none", "title not identified", "not identified", "introduction", "references"];
     const meta = ov.metadata || {};
-    const title = meta.title || ov.paper_title || "Untitled Paper";
-    const filename = ov.paper_filename || ov.manuscript_filename || "manuscript.pdf";
-    const shaHash = ov.file_hash_sha256 || ov.file_sha256 || "";
+    const runInfo = allRunsList.find(r => r.name === currentRunDir || r.name === ov.run_dir);
+    const authRev = authoritativeReview || ov.authoritative_review || runInfo || {};
+
+    let title = "";
+    if (runInfo && runInfo.paper_title && !INVALID_TITLES.includes(runInfo.paper_title.toLowerCase().trim())) {
+        title = runInfo.paper_title;
+    } else if (authRev.paper_title && !INVALID_TITLES.includes(authRev.paper_title.toLowerCase().trim())) {
+        title = authRev.paper_title;
+    } else if (meta.title && !INVALID_TITLES.includes(meta.title.toLowerCase().trim()) && !meta.title.toLowerCase().startsWith("keyword")) {
+        title = meta.title;
+    } else if (ov.paper_title && !INVALID_TITLES.includes(ov.paper_title.toLowerCase().trim()) && !ov.paper_title.toLowerCase().startsWith("keyword")) {
+        title = ov.paper_title;
+    } else {
+        title = "Title not identified";
+    }
+
+    const filename = authRev.manuscript_filename || ov.paper_filename || (runInfo && runInfo.original_filename) || "manuscript.pdf";
+    const shaHash = authRev.file_hash_sha256 || ov.file_hash_sha256 || (runInfo && runInfo.sha256) || "";
     const authorsList = (meta.authors && meta.authors.length > 0) ? meta.authors : (ov.authors || []);
     const yearVal = meta.year || ov.year || "—";
     const tokensVal = meta.token_count || ov.estimated_token_count;
-    const abstractVal = meta.abstract || ov.abstract_raw || "Abstract not explicitly identified in manuscript text.";
+
+    let abstractVal = meta.abstract || ov.abstract_raw || "";
+    if (!abstractVal || abstractVal.includes("|") || abstractVal.includes("@") || abstractVal.length < 25) {
+        abstractVal = "Abstract not explicitly identified in manuscript text.";
+    }
 
     const titleEl = document.getElementById("paper-overview-title");
     if (titleEl) titleEl.textContent = title;
@@ -579,6 +650,32 @@ function renderPaperOverviewData(ov) {
     const absText = document.getElementById("po-abstract-text");
     if (absText) {
         absText.textContent = abstractVal;
+    }
+
+    // Populate Authoritative Review Diagnostics Strip
+    const authStrip = document.getElementById("po-authoritative-strip");
+    const authScore = document.getElementById("po-auth-score");
+    const authEvidence = document.getElementById("po-auth-evidence");
+    const authStatus = document.getElementById("po-auth-status");
+    const authRun = document.getElementById("po-auth-run");
+
+    if (authStrip) {
+        const sc = authRev.diagnostic_score != null ? authRev.diagnostic_score : (runInfo ? runInfo.overall_score : null);
+        if (sc != null) {
+            authStrip.style.display = "flex";
+            if (authScore) authScore.textContent = `${Number(sc).toFixed(1)} / 100`;
+            const ver = authRev.verified_quotations ?? (runInfo && runInfo.verified_count) ?? 0;
+            const tot = authRev.total_quotations ?? (runInfo && runInfo.total_count) ?? 0;
+            if (authEvidence) authEvidence.textContent = `${ver} / ${tot} verified quotations`;
+            const st = authRev.review_status || (runInfo && runInfo.final_system_status) || "Completed";
+            if (authStatus) {
+                authStatus.textContent = st;
+                authStatus.className = `identity-badge status-badge ${getStatusBadgeClass(st)}`;
+            }
+            if (authRun) authRun.textContent = authRev.run_id || ov.run_dir || currentRunDir || "—";
+        } else {
+            authStrip.style.display = "none";
+        }
     }
 
     const sectionKeys = [
@@ -609,13 +706,19 @@ function renderPaperOverviewData(ov) {
         }
 
         // Badge
+        const hasSubstantiveContent = Boolean(sec.content && sec.content.trim() && !sec.content.toLowerCase().includes("not identified") && sec.content.length > 25);
         if (badgeEl) {
             if (sec.status === "verified_content") {
                 badgeEl.className = "po-badge po-badge-verified";
-                badgeEl.textContent = "Verified in Text";
+                badgeEl.textContent = "Extracted from Manuscript";
             } else if (sec.status === "not_identified_in_text") {
-                badgeEl.className = "po-badge po-badge-not-identified";
-                badgeEl.textContent = "Not Identified in Text";
+                if (hasSubstantiveContent) {
+                    badgeEl.className = "po-badge po-badge-synthetic";
+                    badgeEl.textContent = "AI Synthesis (Unstated in Text)";
+                } else {
+                    badgeEl.className = "po-badge po-badge-not-identified";
+                    badgeEl.textContent = "Not Identified in Text";
+                }
             } else {
                 badgeEl.className = "po-badge po-badge-unsupported";
                 badgeEl.textContent = sec.status || "Unknown";
@@ -624,7 +727,7 @@ function renderPaperOverviewData(ov) {
 
         // Body
         if (bodyEl) {
-            if (sec.status === "not_identified_in_text") {
+            if (sec.status === "not_identified_in_text" && !hasSubstantiveContent) {
                 bodyEl.innerHTML = `<em>${escapeHtml(sec.content || "Not identified in manuscript text.")}</em>`;
             } else {
                 bodyEl.textContent = sec.content || "—";
@@ -1006,7 +1109,22 @@ async function init() {
 
     startBtn.addEventListener("click", startRun);
     stopBtn.addEventListener("click", stopRun);
-    reviewModalClose.addEventListener("click", () => reviewModal.style.display = "none");
+    function closeReviewModal() {
+        if (reviewModal) reviewModal.style.display = "none";
+        if (lastModalFocusedElement && typeof lastModalFocusedElement.focus === "function") {
+            try { lastModalFocusedElement.focus(); } catch (_) {}
+            lastModalFocusedElement = null;
+        }
+    }
+    reviewModalClose.addEventListener("click", closeReviewModal);
+    reviewModal.addEventListener("click", (e) => {
+        if (e.target === reviewModal) closeReviewModal();
+    });
+    if (judgeModal) {
+        judgeModal.addEventListener("click", (e) => {
+            if (e.target === judgeModal) judgeModal.style.display = "none";
+        });
+    }
 
     // Analysis Studio in-page start controls
     const analysisStartBtn = document.getElementById("analysis-start-btn");
@@ -1094,14 +1212,27 @@ async function init() {
 
     const inspectEvidenceBtn = document.getElementById("dashboard-view-evidence-btn");
     if (inspectEvidenceBtn) {
-        inspectEvidenceBtn.addEventListener("click", () => {
-            if (dashboardReviewSelect.value) {
-                showReviewByFilename(dashboardReviewSelect.value).then(() => {
-                    const panel = document.getElementById("evidence-panel");
-                    if (panel) {
-                        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        inspectEvidenceBtn.addEventListener("click", async () => {
+            let targetFilename = (dashboardReviewSelect && dashboardReviewSelect.value)
+                || (reportsData && reportsData[0] && reportsData[0].filename)
+                || activeReviewFilename;
+
+            if (!targetFilename && currentRunDir) {
+                try {
+                    const resp = await fetch(`/api/reports/${encodeURIComponent(currentRunDir)}`);
+                    if (resp.ok) {
+                        const reports = await resp.json();
+                        if (reports && reports.length > 0) {
+                            targetFilename = reports[0].filename;
+                        }
                     }
-                });
+                } catch (_) {}
+            }
+
+            if (targetFilename) {
+                await showReviewByFilename(targetFilename, "evidence-panel");
+            } else {
+                showToast("No review report available to inspect evidence for.", "warning");
             }
         });
     }
@@ -1123,6 +1254,19 @@ async function init() {
     if (btnExportJson) btnExportJson.addEventListener("click", () => exportCurrentAuditJson());
     const btnPrintReview = document.getElementById("btn-print-review");
     if (btnPrintReview) btnPrintReview.addEventListener("click", printCurrentReview);
+    const btnCopyFindings = document.getElementById("btn-copy-findings");
+    if (btnCopyFindings) btnCopyFindings.addEventListener("click", () => {
+        const text = reviewModalBody.innerText || reviewModalBody.textContent;
+        if (!text || text.trim() === "Loading...") {
+            showToast("No review report content loaded", "warning");
+            return;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+            showToast("Review findings copied to clipboard", "success");
+        }).catch(() => {
+            showToast("Unable to copy to clipboard", "error");
+        });
+    });
     const btnExportCsv = document.getElementById("export-csv-btn");
     if (btnExportCsv) btnExportCsv.addEventListener("click", exportConsolidatedCsv);
     const btnDashExport = document.getElementById("dashboard-export-btn");
@@ -1208,6 +1352,85 @@ async function init() {
     }
     await updateTrashBadge();
 
+    // Theme toggle & Command palette initialization
+    initTheme();
+    initCommandPalette();
+    setupPaperpalInteractions();
+
+    const headerConfigToggle = document.getElementById("header-config-toggle");
+    if (headerConfigToggle) {
+        headerConfigToggle.addEventListener("click", toggleConfigPanel);
+    }
+
+    // Mobile Actions Menu Toggle (<640px)
+    const mobileActionsToggle = document.getElementById("mobile-actions-toggle");
+    if (mobileActionsToggle) {
+        mobileActionsToggle.addEventListener("click", toggleMobileActionsMenu);
+    }
+
+    // Mobile Sidebar Backdrop Click
+    const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+    if (sidebarBackdrop) {
+        sidebarBackdrop.addEventListener("click", closeMobileConfigPanel);
+    }
+
+    // Outside click to close mobile actions menu
+    document.addEventListener("click", (e) => {
+        const controls = document.getElementById("header-run-controls");
+        const toggleBtn = document.getElementById("mobile-actions-toggle");
+        if (controls && controls.classList.contains("open")) {
+            if (!controls.contains(e.target) && (!toggleBtn || !toggleBtn.contains(e.target))) {
+                closeMobileActionsMenu();
+            }
+        }
+    });
+
+    // Escape key closes mobile drawers, popups, and open modals
+    window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            const panel = document.getElementById("config-panel");
+            if (panel && panel.classList.contains("open")) {
+                closeMobileConfigPanel();
+            }
+            const controls = document.getElementById("header-run-controls");
+            if (controls && controls.classList.contains("open")) {
+                closeMobileActionsMenu();
+            }
+            if (reviewModal && reviewModal.style.display !== "none") {
+                reviewModal.style.display = "none";
+            }
+            if (judgeModal && judgeModal.style.display !== "none") {
+                judgeModal.style.display = "none";
+            }
+            const trash = document.getElementById("trash-modal");
+            if (trash && trash.style.display !== "none") {
+                trash.style.display = "none";
+            }
+            const helpModal = document.getElementById("help-modal");
+            if (helpModal && helpModal.style.display !== "none") {
+                helpModal.style.display = "none";
+            }
+            const appSidebar = document.getElementById("app-sidebar");
+            if (appSidebar && appSidebar.classList.contains("open")) {
+                appSidebar.classList.remove("open");
+                if (sidebarBackdrop) sidebarBackdrop.classList.remove("active");
+            }
+        }
+    });
+
+    // Viewport resize handling
+    window.addEventListener("resize", () => {
+        if (window.innerWidth > 900) {
+            closeMobileConfigPanel();
+        }
+        if (window.innerWidth > 640) {
+            closeMobileActionsMenu();
+        }
+    });
+
+    // Ollama Real Health Check
+    initOllamaHealthCheck();
+
     // Hash routing & navigation
     window.addEventListener("hashchange", handleRouting);
     handleRouting();
@@ -1217,6 +1440,444 @@ async function init() {
         if (Object.keys(configDirty).length > 0) {
             e.preventDefault();
             e.returnValue = "";
+        }
+    });
+}
+
+// ---- Paperpal Academic Interaction Handlers ----
+function setupPaperpalInteractions() {
+    // 1. Sidebar Configuration Button toggle
+    const sidebarConfigBtn = document.getElementById("sidebar-config-btn");
+    if (sidebarConfigBtn) {
+        sidebarConfigBtn.addEventListener("click", () => {
+            toggleConfigPanel();
+        });
+    }
+
+    // 2. Mobile Sidebar Toggle Button
+    const sidebarToggleBtn = document.getElementById("sidebar-toggle-btn");
+    const appSidebar = document.getElementById("app-sidebar");
+    const backdrop = document.getElementById("sidebar-backdrop");
+    if (sidebarToggleBtn && appSidebar) {
+        sidebarToggleBtn.addEventListener("click", () => {
+            const isOpen = appSidebar.classList.toggle("open");
+            if (backdrop) {
+                if (isOpen) backdrop.classList.add("active");
+                else backdrop.classList.remove("active");
+            }
+        });
+    }
+    if (backdrop) {
+        backdrop.addEventListener("click", () => {
+            if (appSidebar) appSidebar.classList.remove("open");
+            closeMobileConfigPanel();
+        });
+    }
+
+    // 3. Help Modal
+    const helpTrigger = document.getElementById("help-modal-trigger");
+    const helpModal = document.getElementById("help-modal");
+    const helpClose = document.getElementById("help-modal-close");
+    if (helpTrigger && helpModal) {
+        helpTrigger.addEventListener("click", () => {
+            helpModal.style.display = "flex";
+        });
+    }
+    if (helpClose && helpModal) {
+        helpClose.addEventListener("click", () => {
+            helpModal.style.display = "none";
+        });
+    }
+    if (helpModal) {
+        helpModal.addEventListener("click", (e) => {
+            if (e.target === helpModal) helpModal.style.display = "none";
+        });
+    }
+
+    // 4. Primary Dashboard Upload Dropzone Interaction
+    const dashDropzone = document.getElementById("dashboard-dropzone");
+    const dashFileInput = document.getElementById("dashboard-file-input");
+    const dashChooseBtn = document.getElementById("dashboard-choose-btn");
+    const dashFileChip = document.getElementById("dashboard-file-chip");
+    const dashChipName = document.getElementById("dashboard-chip-name");
+    const dashChipSize = document.getElementById("dashboard-chip-size");
+    const dashChipClear = document.getElementById("dashboard-chip-clear");
+    const dashChipSubmit = document.getElementById("dashboard-chip-submit");
+    const dashProgress = document.getElementById("dashboard-upload-progress");
+    const dashProgressFill = document.getElementById("dashboard-progress-fill");
+    const dashProgressText = document.getElementById("dashboard-progress-text");
+    const dashUploadMsg = document.getElementById("dashboard-upload-msg");
+
+    if (dashChooseBtn && dashFileInput) {
+        dashChooseBtn.addEventListener("click", () => {
+            dashFileInput.click();
+        });
+    }
+
+    function handleDashboardFiles(files) {
+        if (!files || !files.length) return;
+        const file = files[0];
+        const allowedExts = [".pdf", ".docx"];
+        const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+        if (!allowedExts.includes(ext)) {
+            if (dashUploadMsg) {
+                dashUploadMsg.textContent = "Unsupported format. Only PDF and DOCX manuscripts are supported.";
+                dashUploadMsg.className = "dashboard-upload-msg error";
+            }
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            if (dashUploadMsg) {
+                dashUploadMsg.textContent = "File exceeds 20 MB size limit.";
+                dashUploadMsg.className = "dashboard-upload-msg error";
+            }
+            return;
+        }
+
+        // Show chip
+        if (dashFileChip) {
+            dashFileChip.style.display = "flex";
+            if (dashChipName) dashChipName.textContent = file.name;
+            if (dashChipSize) {
+                const mb = (file.size / (1024 * 1024)).toFixed(2);
+                const kb = (file.size / 1024).toFixed(1);
+                dashChipSize.textContent = file.size > 1024 * 1024 ? `${mb} MB` : `${kb} KB`;
+            }
+        }
+        if (dashUploadMsg) {
+            dashUploadMsg.textContent = "Manuscript selected. Click 'Start Review' to proceed.";
+            dashUploadMsg.className = "dashboard-upload-msg info";
+        }
+
+        // Transfer files to paperFileInput and trigger change
+        if (paperFileInput) {
+            try {
+                const transfer = new DataTransfer();
+                for (let i = 0; i < files.length; i++) {
+                    transfer.items.add(files[i]);
+                }
+                paperFileInput.files = transfer.files;
+                paperFileInput.dispatchEvent(new Event("change", { bubbles: true }));
+            } catch (_) {}
+        }
+    }
+
+    if (dashFileInput) {
+        dashFileInput.addEventListener("change", () => {
+            handleDashboardFiles(dashFileInput.files);
+        });
+    }
+
+    if (dashChipClear) {
+        dashChipClear.addEventListener("click", () => {
+            if (dashFileInput) dashFileInput.value = "";
+            if (paperFileInput) paperFileInput.value = "";
+            if (dashFileChip) dashFileChip.style.display = "none";
+            if (dashUploadMsg) {
+                dashUploadMsg.textContent = "";
+                dashUploadMsg.className = "dashboard-upload-msg";
+            }
+        });
+    }
+
+    if (dashChipSubmit) {
+        dashChipSubmit.addEventListener("click", async () => {
+            if (dashProgress) {
+                dashProgress.style.display = "block";
+                if (dashProgressFill) dashProgressFill.style.width = "40%";
+                if (dashProgressText) dashProgressText.textContent = "Uploading to review sandbox...";
+            }
+            await uploadPaper();
+            if (dashProgressFill) dashProgressFill.style.width = "100%";
+            setTimeout(() => {
+                if (dashProgress) dashProgress.style.display = "none";
+                window.location.hash = "#/upload";
+            }, 600);
+        });
+    }
+
+    if (dashDropzone) {
+        ["dragenter", "dragover"].forEach(eventName => {
+            dashDropzone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dashDropzone.classList.add("is-dragging");
+            });
+        });
+        ["dragleave", "dragend"].forEach(eventName => {
+            dashDropzone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dashDropzone.classList.remove("is-dragging");
+            });
+        });
+        dashDropzone.addEventListener("drop", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dashDropzone.classList.remove("is-dragging");
+            const files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files.length) {
+                handleDashboardFiles(files);
+            }
+        });
+    }
+}
+
+// ---- Premium UI/UX 2.0 Helpers: Toast, Themes, Radial Gauge, Command Palette ----
+
+function getScrollBehavior() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
+function showToast(message, type = "info", duration = 3500) {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+
+    let iconSvg = "";
+    if (type === "success") {
+        iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--status-success)"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+    } else if (type === "warning") {
+        iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--status-warning)"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+    } else if (type === "error") {
+        iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--status-error)"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+    } else {
+        iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brand-secondary)"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+    }
+
+    toast.innerHTML = `${iconSvg}<span>${escapeHtml(message)}</span>`;
+    container.appendChild(toast);
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(() => {
+        if (prefersReducedMotion) {
+            toast.remove();
+        } else {
+            toast.style.opacity = "0";
+            toast.style.transform = "translateX(20px)";
+            toast.style.transition = "all 0.3s var(--ease-out)";
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, duration);
+}
+
+function initTheme() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const themeParam = urlParams.get("theme");
+    const saved = themeParam || localStorage.getItem("ris_theme") || "light";
+    setTheme(saved, false);
+
+    const toggleBtn = document.getElementById("theme-toggle-btn");
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", () => {
+            const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+            const next = current === "light" ? "dark" : "light";
+            setTheme(next, true);
+        });
+    }
+}
+
+function setTheme(theme, notify = false) {
+    if (theme === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+    } else {
+        document.documentElement.removeAttribute("data-theme");
+    }
+    localStorage.setItem("ris_theme", theme);
+
+    const moon = document.getElementById("theme-icon-moon");
+    const sun = document.getElementById("theme-icon-sun");
+    if (moon && sun) {
+        moon.style.display = theme === "light" ? "none" : "block";
+        sun.style.display = theme === "light" ? "block" : "none";
+    }
+    if (notify) {
+        showToast(`Switched to ${theme === "light" ? "Light" : "Dark"} mode`, "info", 2000);
+    }
+}
+
+function updateRadialScoreGauge(score) {
+    const circle = document.getElementById("dashboard-score-circle");
+    if (!circle) return;
+    if (score === null || isNaN(score) || score === undefined) {
+        circle.style.strokeDashoffset = "263.89";
+        circle.style.stroke = "var(--surface-raised)";
+        return;
+    }
+    const circumference = 263.89; // 2 * PI * 42
+    const clamped = Math.max(0, Math.min(100, score));
+    const offset = circumference - (clamped / 100) * circumference;
+    circle.style.strokeDashoffset = String(offset);
+
+    if (clamped >= 75) {
+        circle.style.stroke = "var(--status-success)";
+    } else if (clamped >= 50) {
+        circle.style.stroke = "var(--status-warning)";
+    } else {
+        circle.style.stroke = "var(--status-error)";
+    }
+}
+
+let commandPaletteSelectedIndex = 0;
+let commandPaletteItems = [];
+
+function initCommandPalette() {
+    const palette = document.getElementById("command-palette");
+    const searchInput = document.getElementById("command-palette-search");
+    const triggerBtn = document.getElementById("cmd-palette-btn");
+    const closeBtn = document.getElementById("command-palette-close");
+
+    if (!palette || !searchInput) return;
+
+    function openPalette() {
+        palette.style.display = "flex";
+        searchInput.value = "";
+        commandPaletteSelectedIndex = 0;
+        renderCommandPaletteResults("");
+        searchInput.focus();
+    }
+
+    function closePalette() {
+        palette.style.display = "none";
+    }
+
+    if (triggerBtn) triggerBtn.addEventListener("click", openPalette);
+    if (closeBtn) closeBtn.addEventListener("click", closePalette);
+
+    if (new URLSearchParams(window.location.search).get("palette") === "open") {
+        setTimeout(openPalette, 600);
+    }
+
+    palette.addEventListener("click", (e) => {
+        if (e.target === palette) closePalette();
+    });
+
+    window.addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+            e.preventDefault();
+            if (palette.style.display === "none" || !palette.style.display) {
+                openPalette();
+            } else {
+                closePalette();
+            }
+        } else if (e.key === "Escape" && palette.style.display !== "none") {
+            closePalette();
+        }
+    });
+
+    searchInput.addEventListener("input", () => {
+        commandPaletteSelectedIndex = 0;
+        renderCommandPaletteResults(searchInput.value.trim().toLowerCase());
+    });
+
+    searchInput.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (commandPaletteItems.length > 0) {
+                commandPaletteSelectedIndex = (commandPaletteSelectedIndex + 1) % commandPaletteItems.length;
+                highlightSelectedCommandItem();
+            }
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (commandPaletteItems.length > 0) {
+                commandPaletteSelectedIndex = (commandPaletteSelectedIndex - 1 + commandPaletteItems.length) % commandPaletteItems.length;
+                highlightSelectedCommandItem();
+            }
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (commandPaletteItems[commandPaletteSelectedIndex]) {
+                commandPaletteItems[commandPaletteSelectedIndex].action();
+                closePalette();
+            }
+        }
+    });
+}
+
+function renderCommandPaletteResults(query) {
+    const resultsContainer = document.getElementById("command-palette-results");
+    if (!resultsContainer) return;
+
+    const baseActions = [
+        { section: "Navigation", label: "System Overview", icon: "📊", badge: "Page", action: () => { window.location.hash = "#/overview"; } },
+        { section: "Navigation", label: "Paper Overview (8 Dimensions)", icon: "📑", badge: "Page", action: () => { window.location.hash = "#/paper-overview"; } },
+        { section: "Navigation", label: "Upload Research Paper", icon: "↑", badge: "Page", action: () => { window.location.hash = "#/upload"; } },
+        { section: "Navigation", label: "Analysis Studio", icon: "🔬", badge: "Page", action: () => { window.location.hash = "#/analysis"; } },
+        { section: "Navigation", label: "Past Reviews Archive", icon: "🗄️", badge: "Page", action: () => { window.location.hash = "#/reviews"; } },
+        { section: "Actions", label: "Start Review on Active Run", icon: "▶", badge: "Action", action: () => { if (startBtn && !startBtn.disabled) startRun(); else showToast("Please select a run first", "warning"); } },
+        { section: "Actions", label: "Execute Batch Review", icon: "⚡", badge: "Batch", action: () => { startBatch(); } },
+        { section: "Actions", label: "Toggle Dark / Light Theme", icon: "🌓", badge: "Theme", action: () => { const curr = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"; setTheme(curr === "light" ? "dark" : "light", true); } },
+        { section: "Actions", label: "Toggle Configuration Drawer", icon: "⚙️", badge: "Sidebar", action: () => { toggleConfigPanel(); } },
+        { section: "Actions", label: "View Soft-Deleted Runs (Trash)", icon: "🗑️", badge: "Trash", action: () => { showTrashModal(); } },
+        { section: "Actions", label: "Export Consolidated CSV", icon: "📥", badge: "Export", action: () => { window.location.href = "/api/reports/csv"; } },
+    ];
+
+    const paperActions = (allRunsList || []).map(r => ({
+        section: "Recent Manuscripts",
+        label: r.paper_title || r.original_filename || r.name,
+        sub: `${r.formatted_summary || r.display_name || r.name} · Score: ${r.overall_score != null ? r.overall_score.toFixed(1) : "—"}`,
+        icon: "📄",
+        badge: r.run_label || "Run",
+        action: () => {
+            window.location.hash = `#/analysis/${encodeURIComponent(r.name)}`;
+        }
+    }));
+
+    const all = [...baseActions, ...paperActions];
+    commandPaletteItems = query ? all.filter(item => 
+        item.label.toLowerCase().includes(query) || 
+        (item.sub && item.sub.toLowerCase().includes(query)) ||
+        item.section.toLowerCase().includes(query)
+    ) : all;
+
+    if (commandPaletteItems.length === 0) {
+        resultsContainer.innerHTML = `<div class="placeholder-text">No matching commands or manuscripts found for "${escapeHtml(query)}"</div>`;
+        return;
+    }
+
+    let html = "";
+    let currentSection = "";
+    commandPaletteItems.forEach((item, index) => {
+        if (item.section !== currentSection) {
+            currentSection = item.section;
+            html += `<div class="command-section-label">${escapeHtml(currentSection)}</div>`;
+        }
+        const isSelected = index === commandPaletteSelectedIndex ? "selected" : "";
+        html += `<div class="command-item ${isSelected}" data-index="${index}">
+            <div class="command-item-left">
+                <span>${item.icon}</span>
+                <div>
+                    <div>${escapeHtml(item.label)}</div>
+                    ${item.sub ? `<small style="font-size:10px; color:var(--text-muted);">${escapeHtml(item.sub)}</small>` : ""}
+                </div>
+            </div>
+            <span class="command-item-badge">${escapeHtml(item.badge)}</span>
+        </div>`;
+    });
+
+    resultsContainer.innerHTML = html;
+
+    resultsContainer.querySelectorAll(".command-item").forEach(el => {
+        el.addEventListener("click", () => {
+            const idx = Number(el.dataset.index);
+            if (commandPaletteItems[idx]) {
+                commandPaletteItems[idx].action();
+                const palette = document.getElementById("command-palette");
+                if (palette) palette.style.display = "none";
+            }
+        });
+    });
+}
+
+function highlightSelectedCommandItem() {
+    const resultsContainer = document.getElementById("command-palette-results");
+    if (!resultsContainer) return;
+    resultsContainer.querySelectorAll(".command-item").forEach((el, idx) => {
+        if (idx === commandPaletteSelectedIndex) {
+            el.classList.add("selected");
+            el.scrollIntoView({ block: "nearest" });
+        } else {
+            el.classList.remove("selected");
         }
     });
 }
@@ -1384,9 +2045,46 @@ async function loadRuns() {
             runSelector.appendChild(opt);
         }
 
+        const poSelect = document.getElementById("po-run-select");
+        if (poSelect) {
+            poSelect.innerHTML = '<option value="">Select manuscript...</option>';
+            for (const run of allRunsList) {
+                const opt = document.createElement("option");
+                opt.value = run.name;
+                const primary = run.paper_title || run.original_filename || run.name;
+                opt.textContent = `${primary} (${run.run_label || 'Run 1'})`;
+                poSelect.appendChild(opt);
+            }
+            if (currentRunDir) {
+                poSelect.value = currentRunDir;
+            }
+            poSelect.onchange = () => {
+                if (poSelect.value) {
+                    if (runSelector) runSelector.value = poSelect.value;
+                    onRunSelected();
+                    loadPaperOverview(poSelect.value);
+                }
+            };
+        }
+
         renderOverviewStats();
         renderReviewsArchive();
         await updateTrashBadge();
+
+        // Re-check target run from hash now that options are populated
+        const currentHash = window.location.hash || "";
+        let pendingTarget = null;
+        if (currentHash.startsWith("#/analysis/")) {
+            pendingTarget = currentHash.replace("#/analysis/", "").trim();
+        } else if (currentHash.startsWith("#/paper-overview/")) {
+            pendingTarget = currentHash.replace("#/paper-overview/", "").trim();
+        }
+        if (pendingTarget && allRunsList.some(r => r.name === pendingTarget)) {
+            if (currentRunDir !== pendingTarget) {
+                runSelector.value = pendingTarget;
+                await onRunSelected();
+            }
+        }
     } catch (e) {
         console.error("Failed to load runs:", e);
     }
@@ -1655,7 +2353,102 @@ function _openSSE() {
     };
 }
 
+function updateProcessingStudio(evt) {
+    const studio = document.getElementById("upload-processing-studio");
+    if (!studio) return;
+
+    if (evt.event_type === "run_started") {
+        studio.style.display = "block";
+        const titleEl = document.getElementById("proc-paper-title");
+        if (titleEl) titleEl.textContent = `Analyzing ${evt.paper_count || 1} Manuscript(s)...`;
+        setProcStage(1, "completed");
+        setProcStage(2, "active");
+        setProcProgress(12, "Extracting text and metadata...");
+    } else if (evt.event_type === "stage_started") {
+        const titleEl = document.getElementById("proc-paper-title");
+        if (titleEl && evt.paper_filename) titleEl.textContent = evt.paper_filename;
+        const scannerName = document.getElementById("scanner-doc-name");
+        if (scannerName && evt.paper_filename) scannerName.textContent = evt.paper_filename;
+        const scannerStatus = document.getElementById("scanner-doc-status");
+
+        const stage = evt.stage_name || "";
+        if (stage === "Section Analysis") {
+            setProcStage(2, "completed");
+            setProcStage(3, "active");
+            setProcProgress(28, "Mapping academic sections...");
+            if (scannerStatus) scannerStatus.textContent = "Detecting structural academic headings...";
+        } else if (stage === "Supplemental Analysis") {
+            setProcStage(3, "completed");
+            setProcStage(4, "active");
+            setProcProgress(42, "Auditing methodology & consistency...");
+            if (scannerStatus) scannerStatus.textContent = "Cross-section consistency and citation heuristics...";
+        } else if (stage === "Librarian" || stage === "Fact-Check") {
+            setProcStage(4, "completed");
+            setProcStage(5, "active");
+            setProcProgress(56, "Verifying evidence quotes in source text...");
+            if (scannerStatus) scannerStatus.textContent = "Grounding quotations against original manuscript...";
+        } else if (stage === "Extraction") {
+            setProcStage(4, "completed");
+            setProcStage(5, "completed");
+            setProcStage(6, "active");
+            setProcProgress(70, "Multi-agent rubric scoring...");
+            if (scannerStatus) scannerStatus.textContent = "Extracting criteria findings with local Ollama LLM...";
+        } else if (stage === "Synthesis") {
+            setProcStage(6, "completed");
+            setProcStage(7, "active");
+            setProcProgress(86, "Synthesizing final review report...");
+            if (scannerStatus) scannerStatus.textContent = "Adjudicating recommendations & safety gates...";
+        }
+    } else if (evt.event_type === "run_progress") {
+        const pct = evt.papers_total > 0 ? (100 * evt.papers_done / evt.papers_total) : 0;
+        setProcProgress(Math.max(15, pct));
+        const etaEl = document.getElementById("proc-progress-eta");
+        if (etaEl && evt.estimated_remaining_s > 0) {
+            etaEl.textContent = `ETA: ${formatDuration(evt.estimated_remaining_s)}`;
+        }
+    } else if (evt.event_type === "paper_completed" || evt.event_type === "run_completed") {
+        setProcStage(7, "completed");
+        setProcStage(8, "completed");
+        setProcProgress(100, "Review report ready");
+        const scannerStatus = document.getElementById("scanner-doc-status");
+        if (scannerStatus) scannerStatus.textContent = "Evaluation complete. Evidence grounded.";
+        const completionCard = document.getElementById("proc-completion-card");
+        if (completionCard) {
+            completionCard.style.display = "flex";
+            const viewBtn = document.getElementById("proc-view-results-btn");
+            if (viewBtn) {
+                viewBtn.onclick = () => {
+                    window.location.hash = `#/analysis/${currentRunDir}`;
+                };
+            }
+        }
+    }
+}
+
+function setProcStage(num, status) {
+    const item = document.getElementById(`proc-stage-${num}`);
+    const badge = document.getElementById(`proc-badge-${num}`);
+    if (!item) return;
+
+    item.classList.remove("pending", "active", "completed");
+    item.classList.add(status);
+
+    if (badge) {
+        if (status === "active") badge.textContent = "Running";
+        else if (status === "completed") badge.textContent = "Done";
+        else badge.textContent = "Pending";
+    }
+}
+
+function setProcProgress(pct, caption) {
+    const fill = document.getElementById("proc-progress-bar-fill");
+    const text = document.getElementById("proc-progress-percent");
+    if (fill) fill.style.width = `${Math.min(100, pct)}%`;
+    if (text) text.textContent = `${Math.round(pct)}% Completed ${caption ? `· ${caption}` : ''}`;
+}
+
 function handleEvent(evt) {
+    updateProcessingStudio(evt);
     switch (evt.event_type) {
         case "run_started":
             addLog(`Run started: ${evt.mode} mode, ${evt.paper_count} papers`, "info");
@@ -1996,21 +2789,29 @@ function renderDashboardReview(metadata, markdown, criteriaConfig, evidenceRecor
             ? (rawProvisional.toLowerCase().includes("provisional") ? rawProvisional : `${rawProvisional} (Provisional)`)
             : (status === "failed" ? "Unavailable" : `${finalRecommendation} (Provisional)`);
 
-    document.getElementById("dashboard-paper-title").textContent = title;
+    const runInfo = allRunsList.find(r => r.name === currentRunDir);
+    let cleanTitle = (runInfo && runInfo.paper_title && !runInfo.paper_title.toLowerCase().startsWith("keyword")) ? runInfo.paper_title : "";
+    if (!cleanTitle) {
+        cleanTitle = (title && !title.toLowerCase().startsWith("keyword")) ? title : "";
+    }
+    if (!cleanTitle) {
+        cleanTitle = (runInfo && runInfo.original_filename) || metadata.paper_filename || "Research Manuscript";
+    }
+
+    document.getElementById("dashboard-paper-title").textContent = cleanTitle;
     document.getElementById("dashboard-paper-meta").textContent = paperDetails.join(" · ");
 
     // Update Paper Identity Hero Header (8.1)
-    const runInfo = allRunsList.find(r => r.name === currentRunDir);
     const heroOrigName = document.getElementById("analysis-paper-original-name");
     const heroTitle = document.getElementById("analysis-paper-title");
     const heroRunLabel = document.getElementById("analysis-paper-run-label");
     const heroDate = document.getElementById("analysis-paper-date");
     const heroStatus = document.getElementById("analysis-paper-status");
     if (heroOrigName) {
-        heroOrigName.textContent = (runInfo && runInfo.original_filename) || originalFilename || metadata.paper_filename || title;
+        heroOrigName.textContent = (runInfo && runInfo.original_filename) || originalFilename || metadata.paper_filename || cleanTitle;
     }
     if (heroTitle) {
-        heroTitle.textContent = title;
+        heroTitle.textContent = cleanTitle;
     }
     if (heroRunLabel) {
         heroRunLabel.textContent = (runInfo && runInfo.run_label) || "Run 1 of 1";
@@ -2022,8 +2823,30 @@ function renderDashboardReview(metadata, markdown, criteriaConfig, evidenceRecor
         heroStatus.textContent = finalRecommendation;
         heroStatus.className = `identity-badge status-badge ${getStatusBadgeClass(finalRecommendation)}`;
     }
+
+    // Update Progress Panel for loaded review
+    const progressBar = document.getElementById("progress-bar");
+    const progressText = document.getElementById("progress-text");
+    const costDisplay = document.getElementById("cost-display");
+    const currentPaperDisplay = document.getElementById("current-paper-display");
+    if (progressBar) progressBar.style.width = "100%";
+    if (progressText) progressText.textContent = "Review complete · 100%";
+    if (costDisplay) {
+        costDisplay.textContent = metadata.total_cost_usd != null
+            ? `$${parseFloat(metadata.total_cost_usd).toFixed(4)}`
+            : "$0.00";
+    }
+    if (currentPaperDisplay) {
+        currentPaperDisplay.textContent = (runInfo && runInfo.original_filename) || originalFilename || metadata.paper_filename || title;
+    }
+    ["Ingestion", "Extraction", "Synthesis", "Output"].forEach(completeStage);
+
     stateBanner.className = `dashboard-state-banner state-${status}`;
-    stateIcon.textContent = status === "complete" ? "✓" : status === "legacy" ? "i" : "!";
+    stateIcon.innerHTML = status === "complete"
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+        : status === "legacy"
+            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
     document.getElementById("dashboard-state-title").textContent = statusTitle[status] || "Review status";
 
     const successful = Number(metadata.successful_criteria);
@@ -2046,6 +2869,9 @@ function renderDashboardReview(metadata, markdown, criteriaConfig, evidenceRecor
     document.getElementById("dashboard-score").textContent = scoreKnown ? `${score.toFixed(1)} / 100` : "—";
     document.getElementById("dashboard-donut-score").textContent = scoreKnown ? score.toFixed(1) : "—";
     document.getElementById("dashboard-score-fill").style.width = scoreKnown ? `${Math.max(0, Math.min(100, score))}%` : "0%";
+    if (typeof updateRadialScoreGauge === "function") {
+        updateRadialScoreGauge(scoreKnown ? score : null);
+    }
     document.getElementById("dashboard-recommendation").textContent = provisionalRec;
     document.getElementById("dashboard-provisional").textContent = metadata.provisional_recommendation
         ? (status === "complete"
@@ -2079,7 +2905,10 @@ function renderDashboardReview(metadata, markdown, criteriaConfig, evidenceRecor
     const executiveSummary = extractMarkdownSection(markdown, "Executive Summary");
     const executiveCard = document.getElementById("dashboard-executive-card");
     executiveCard.hidden = !executiveSummary;
-    document.getElementById("dashboard-executive-summary").textContent = executiveSummary;
+    const execSummaryEl = document.getElementById("dashboard-executive-summary");
+    if (execSummaryEl) {
+        execSummaryEl.innerHTML = formatEvidenceCitations(escapeHtml(executiveSummary));
+    }
 
     const verifiedRecords = evidenceRecords.filter(item => String(item.verification_status || "").toLowerCase() === "verified").length;
     const evidenceRecordsKnown = evidenceRecords.length > 0
@@ -2308,10 +3137,16 @@ function renderDashboardList(cardId, listId, items, ordered = false) {
     if (!card || !list) return;
     card.hidden = items.length === 0;
     list.innerHTML = items.map(item => {
-        if (item.startsWith("*(Status:") || item.includes("(Status:")) {
-            return `<li class="diagnostic-status-item"><em>${escapeHtml(item)}</em></li>`;
+        const trimmed = (item || "").trim();
+        if (trimmed.startsWith("*(Status:") || trimmed.includes("(Status:")) {
+            const cleanedStatus = formatEvidenceCitations(escapeHtml(trimmed));
+            return `<li class="diagnostic-status-item">${cleanedStatus}</li>`;
         }
-        return `<li>${escapeHtml(item)}</li>`;
+        let formatted = escapeHtml(trimmed);
+        formatted = formatted.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        formatted = formatted.replace(/\*(.+?)\*/g, "<em>$1</em>");
+        formatted = formatEvidenceCitations(formatted);
+        return `<li>${formatted}</li>`;
     }).join("");
     if (ordered) list.setAttribute("aria-label", "Revision suggestions");
 }
@@ -2329,9 +3164,63 @@ function renderResults(results) {
 }
 
 let activeReviewFilename = "";
+let lastModalFocusedElement = null;
 
-async function showReviewByFilename(filename) {
+function switchModalSection(targetId) {
+    const allPanels = [
+        "review-modal-body",
+        "evidence-panel",
+        "section-analysis-panel",
+        "quality-analysis-panel",
+        "audit-provenance-panel"
+    ];
+
+    const pills = document.querySelectorAll(".modal-nav-pill");
+    pills.forEach(pill => {
+        if (pill.dataset.target === targetId) {
+            pill.classList.add("active");
+            pill.setAttribute("aria-selected", "true");
+        } else {
+            pill.classList.remove("active");
+            pill.setAttribute("aria-selected", "false");
+        }
+    });
+
+    allPanels.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === targetId) {
+            el.style.display = "block";
+            el.classList.add("active");
+            el.removeAttribute("hidden");
+            el.scrollTop = 0;
+            el.classList.remove("section-target-highlight");
+            void el.offsetWidth;
+            el.classList.add("section-target-highlight");
+        } else {
+            el.style.display = "none";
+            el.classList.remove("active");
+            el.setAttribute("hidden", "true");
+        }
+    });
+}
+
+function wireModalSubnav() {
+    const modalNavPills = document.querySelectorAll(".modal-nav-pill");
+    modalNavPills.forEach(pill => {
+        pill.onclick = (e) => {
+            e.preventDefault();
+            const targetId = pill.dataset.target;
+            if (targetId) {
+                switchModalSection(targetId);
+            }
+        };
+    });
+}
+
+async function showReviewByFilename(filename, targetSectionId = "review-modal-body") {
     if (!currentRunDir) return;
+    lastModalFocusedElement = document.activeElement;
     activeReviewFilename = filename;
     const paperName = filename.split("_20")[0] || filename;
     reviewModalTitle.textContent = `Review: ${paperName}`;
@@ -2343,12 +3232,47 @@ async function showReviewByFilename(filename) {
     if (evidenceSummary) evidenceSummary.textContent = "Loading...";
 
     try {
-        const res = await fetch(`/api/review/${currentRunDir}/${filename}`);
+        const res = await fetch(`/api/review/${encodeURIComponent(currentRunDir)}/${encodeURIComponent(filename)}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
+
+        const runInfo = allRunsList.find(r => r.name === currentRunDir);
+        const titleMatch = text.match(/^#\s+(?:Review:\s*)?([^\r\n]+)/m);
+        let displayTitle = (runInfo && runInfo.paper_title) || "";
+        if (!displayTitle && titleMatch && titleMatch[1].trim() && !titleMatch[1].toLowerCase().includes("keywords")) {
+            displayTitle = titleMatch[1].trim();
+        }
+        if (!displayTitle) {
+            displayTitle = (runInfo && runInfo.original_filename) || paperName.replace(/_/g, " ");
+        }
+        reviewModalTitle.textContent = `Review: ${displayTitle}`;
+        reviewModalTitle.title = displayTitle;
+
         reviewModalBody.innerHTML = renderMarkdown(text);
         reviewModal.style.display = "flex";
         wireModalSubnav();
+        switchModalSection(targetSectionId);
+
+        // Make evidence citations inside report body clickable to jump to Grounding Matrix
+        reviewModalBody.querySelectorAll(".evidence-cite-badge").forEach(badge => {
+            badge.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const rawCit = badge.dataset.citation || badge.textContent || "";
+                const cleanCit = rawCit.replace(/^Evidence:\s*/i, "").trim();
+                switchModalSection("evidence-panel");
+                const card = document.getElementById(`evidence-card-${cleanCit}`)
+                    || Array.from(document.querySelectorAll("#evidence-list .evidence-card")).find(c =>
+                        c.textContent.includes(cleanCit)
+                    );
+                if (card) {
+                    card.scrollIntoView({ behavior: "smooth", block: "center" });
+                    card.classList.remove("section-target-highlight");
+                    void card.offsetWidth;
+                    card.classList.add("section-target-highlight");
+                }
+            });
+        });
+
         await Promise.all([
             loadEvidenceForReview(filename),
             loadSectionAnalysis(filename),
@@ -2582,20 +3506,6 @@ function printCurrentReview() {
 }
 
 
-function wireModalSubnav() {
-    const modalNavPills = document.querySelectorAll(".modal-nav-pill");
-    modalNavPills.forEach(pill => {
-        pill.onclick = () => {
-            modalNavPills.forEach(p => p.classList.remove("active"));
-            pill.classList.add("active");
-            const targetId = pill.dataset.target;
-            const targetEl = document.getElementById(targetId);
-            if (targetEl) {
-                targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
-            }
-        };
-    });
-}
 
 async function loadSectionAnalysis(reviewFilename) {
     const list = document.getElementById("section-analysis-list");
@@ -3001,78 +3911,98 @@ async function loadEvidenceForReview(reviewFilename) {
     const evidenceSummary = document.getElementById("evidence-summary");
     if (!evidenceList || !evidenceSummary) return;
 
-    // Extract the original paper filename from the review filename.
-    // The timestamp/model suffix starts at the first "_20YYYYMMDD" segment.
-    const paperFilename = reviewFilename.replace(/_(?:custom_openai|openai|anthropic|ollama|azure|bedrock).*$/, "");
-    const knownPaper = paperFilename ? `${paperFilename}.pdf` : "";
+    try {
+        let records = [];
 
-    if (!knownPaper) {
-        evidenceList.innerHTML = '<p class="placeholder-text">Could not determine the paper filename.</p>';
-        evidenceSummary.textContent = "Unavailable";
+    // Try review-specific evidence lookup endpoint first
+    try {
+        const response = await fetch(
+            `/api/evidence-for-review/${encodeURIComponent(currentRunDir)}/${encodeURIComponent(reviewFilename)}`
+        );
+        if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data.evidence) && data.evidence.length > 0) {
+                records = data.evidence;
+            }
+        }
+    } catch (_) {}
+
+    // Fallback: search by candidate paper filename
+    if (!records.length) {
+        const paperStem = reviewFilename.replace(/_(?:custom_openai|openai|anthropic|ollama|azure|bedrock).*$/, "");
+        for (const candidate of [`${paperStem}.pdf`, `${paperStem}.docx`, paperStem]) {
+            try {
+                const response = await fetch(
+                    `/api/evidence/${encodeURIComponent(currentRunDir)}/${encodeURIComponent(candidate)}`
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    if (Array.isArray(data.evidence) && data.evidence.length > 0) {
+                        records = data.evidence;
+                        break;
+                    }
+                }
+            } catch (_) {}
+        }
+    }
+
+    if (!records.length) {
+        evidenceList.innerHTML = '<p class="placeholder-text">No saved evidence is available for this review yet. Evidence records are generated on the next review run.</p>';
+        evidenceSummary.textContent = "No evidence saved";
         return;
     }
 
-    try {
-        const response = await fetch(
-            `/api/evidence/${encodeURIComponent(currentRunDir)}/${encodeURIComponent(knownPaper)}`
-        );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        const records = Array.isArray(data.evidence) ? data.evidence : [];
+    const verifiedCount = records.filter(item => {
+        const hasQ = Boolean(item.quote && item.quote.trim() && item.quote.trim().toUpperCase() !== "N/A" && item.quote.trim() !== "No quote supplied");
+        return hasQ && String(item.verification_status || "").toLowerCase() === "verified";
+    }).length;
+    const unverifiedCount = records.length - verifiedCount;
+    evidenceSummary.textContent = `${verifiedCount} Verified · ${unverifiedCount} Unverified · ${records.length} Total quotes`;
 
-        if (!records.length) {
-            evidenceList.innerHTML = '<p class="placeholder-text">No saved evidence is available for this review yet. Evidence records are generated on the next review run.</p>';
-            evidenceSummary.textContent = "No evidence saved";
-            return;
+    // Track per-criterion quote index to generate canonical IDs matching report citations (e.g. data_quality:Q1)
+    const criterionQuoteCounts = {};
+
+    evidenceList.innerHTML = records.map((item, index) => {
+        const criterionId = item.criterion_id || "unspecified";
+        criterionQuoteCounts[criterionId] = (criterionQuoteCounts[criterionId] || 0) + 1;
+        const canonicalId = `${criterionId}:Q${criterionQuoteCounts[criterionId]}`;
+
+        const hasValidQuote = Boolean(item.quote && item.quote.trim() && item.quote.trim().toUpperCase() !== "N/A" && item.quote.trim() !== "No quote supplied");
+        const verified = hasValidQuote && String(item.verification_status || "").toLowerCase() === "verified";
+        const statusClass = verified ? "evidence-status-verified" : "evidence-status-unverified";
+        const statusLabel = verified ? "Quote verified in source" : (hasValidQuote ? "Unverified quotation" : "Unverified quotation (No verbatim quote)");
+
+        // Truthful page reference without fabrication
+        let pageText = "Page unrecorded";
+        if (Array.isArray(item.pdf_page_numbers) && item.pdf_page_numbers.length > 0) {
+            pageText = `PDF Page ${item.pdf_page_numbers.join(", ")}`;
+        } else if (item.page_reference && item.page_reference !== "N/A") {
+            pageText = item.page_reference;
+        } else if (item.is_docx || (item.source_file && item.source_file.toLowerCase().endsWith(".docx")) || (activeReviewFilename && activeReviewFilename.toLowerCase().includes(".docx"))) {
+            pageText = "DOCX (Unpaged format)";
         }
 
-        const verifiedCount = records.filter(item =>
-            String(item.verification_status || "").toLowerCase() === "verified"
-        ).length;
-        const unverifiedCount = records.length - verifiedCount;
-        evidenceSummary.textContent = `${verifiedCount} Verified · ${unverifiedCount} Unverified · ${records.length} Total quotes`;
+        // Academic section and mapping info
+        const sectionText = item.academic_section
+            ? item.academic_section.replace(/_/g, " ")
+            : "Unmapped section";
+        const mappingStatus = item.section_mapping_status
+            ? item.section_mapping_status.replace(/_/g, " ")
+            : null;
+        const mappingMethod = item.section_mapping_method
+            ? item.section_mapping_method.replace(/_/g, " ")
+            : null;
 
-        // Track per-criterion quote index to generate canonical IDs matching report citations (e.g. data_quality:Q1)
-        const criterionQuoteCounts = {};
-
-        evidenceList.innerHTML = records.map((item, index) => {
-            const criterionId = item.criterion_id || "unspecified";
-            criterionQuoteCounts[criterionId] = (criterionQuoteCounts[criterionId] || 0) + 1;
-            const canonicalId = `${criterionId}:Q${criterionQuoteCounts[criterionId]}`;
-
-            const verified = String(item.verification_status || "").toLowerCase() === "verified";
-            const statusClass = verified ? "evidence-status-verified" : "evidence-status-unverified";
-            const statusLabel = verified ? "Quote verified in source" : "Unverified quotation";
-
-            // Truthful page reference without fabrication
-            let pageText = "Page unrecorded";
-            if (Array.isArray(item.pdf_page_numbers) && item.pdf_page_numbers.length > 0) {
-                pageText = `PDF Page ${item.pdf_page_numbers.join(", ")}`;
-            } else if (item.page_reference && item.page_reference !== "N/A") {
-                pageText = item.page_reference;
-            }
-
-            // Academic section and mapping info
-            const sectionText = item.academic_section
-                ? item.academic_section.replace(/_/g, " ")
-                : "Unmapped section";
-            const mappingStatus = item.section_mapping_status
-                ? item.section_mapping_status.replace(/_/g, " ")
-                : null;
-            const mappingMethod = item.section_mapping_method
-                ? item.section_mapping_method.replace(/_/g, " ")
-                : null;
-
-            return `
-                <article class="evidence-card ${verified ? "card-verified" : "card-unverified"}" data-status="${verified ? "verified" : "unverified"}" data-criterion="${escapeHtml(criterionId)}">
-                    <div class="evidence-card-header">
-                        <div class="evidence-identifiers">
-                            <span class="evidence-order-badge">#${index + 1}</span>
-                            <code class="evidence-canonical-id" title="Canonical evidence citation identifier">[Evidence: ${escapeHtml(canonicalId)}]</code>
-                            <span class="evidence-criterion-chip">${escapeHtml(criterionId.replace(/_/g, " "))}</span>
-                        </div>
-                        <div class="evidence-status-wrapper">
-                            <span class="evidence-status-pill ${statusClass}">
+        return `
+            <article class="evidence-card ${verified ? "card-verified" : "card-unverified"}" id="evidence-card-${escapeHtml(canonicalId)}" data-status="${verified ? "verified" : "unverified"}" data-criterion="${escapeHtml(criterionId)}" data-canonical-id="${escapeHtml(canonicalId)}">
+                <div class="evidence-card-header">
+                    <div class="evidence-identifiers">
+                        <span class="evidence-order-badge">#${index + 1}</span>
+                        <code class="evidence-canonical-id" title="Canonical evidence citation identifier">[Evidence: ${escapeHtml(canonicalId)}]</code>
+                        <span class="evidence-criterion-chip">${escapeHtml(criterionId.replace(/_/g, " "))}</span>
+                    </div>
+                    <div class="evidence-status-wrapper">
+                        <span class="evidence-status-pill ${statusClass}">
                                 <span class="status-dot"></span>
                                 ${statusLabel}
                             </span>
@@ -3081,10 +4011,10 @@ async function loadEvidenceForReview(reviewFilename) {
 
                     <div class="evidence-quote-box">
                         <div class="evidence-quote-header">
-                            <span class="evidence-quote-type">VERBATIM SOURCE EXCERPT</span>
+                            <span class="evidence-quote-type">${hasValidQuote ? "VERBATIM SOURCE EXCERPT" : "NO QUOTE EXTRACTED"}</span>
                             <span class="evidence-page-ref">${escapeHtml(pageText)}</span>
                         </div>
-                        <blockquote class="evidence-quote">${escapeHtml(item.quote || "No quote supplied")}</blockquote>
+                        <blockquote class="evidence-quote">${escapeHtml(hasValidQuote ? item.quote : "No verbatim excerpt was extracted for this criterion assertion.")}</blockquote>
                     </div>
 
                     <div class="evidence-meta-strip">
@@ -3245,39 +4175,452 @@ function escapeHtml(str) {
         .replace(/'/g, "&#39;");
 }
 
-function renderMarkdown(text) {
-    // Simple markdown-to-HTML for display
+const CRITERION_FRIENDLY_NAMES = {
+    "originality_novelty": "Originality",
+    "theoretical_contribution": "Theoretical",
+    "empirical_rigor": "Empirical",
+    "data_quality": "Data Quality",
+    "identification_strategy": "Identification",
+    "statistical_robustness": "Statistics",
+    "presentation_clarity": "Presentation",
+    "policy_relevance": "Policy",
+};
+
+window.jumpToEvidenceCitation = function(canonicalId) {
+    const cleanCit = (canonicalId || "").trim();
+    if (!cleanCit) return;
+
+    const reviewModal = document.getElementById("review-modal");
+    if (reviewModal && reviewModal.style.display !== "none") {
+        if (typeof switchModalSection === "function") {
+            switchModalSection("evidence-panel");
+        }
+    } else {
+        const viewEvBtn = document.getElementById("dashboard-view-evidence-btn");
+        if (viewEvBtn) {
+            viewEvBtn.click();
+        }
+    }
+
+    setTimeout(() => {
+        const card = document.getElementById(`evidence-card-${cleanCit}`)
+            || Array.from(document.querySelectorAll("#evidence-list .evidence-card, .evidence-card")).find(c =>
+                c.textContent.includes(cleanCit) || (c.dataset && c.dataset.canonicalId === cleanCit)
+            );
+        if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+            card.classList.remove("section-target-highlight");
+            void card.offsetWidth;
+            card.classList.add("section-target-highlight");
+        }
+    }, 150);
+};
+
+function formatEvidenceCitations(html) {
+    if (!html || typeof html !== "string") return "";
+
+    // 1. Clean inline ✓Evidence tokens
+    html = html.replace(/✓\s*Evidence\b/gi, '<span class="inline-verified-tag" title="Verified source evidence"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Verified</span>');
+
+    // 2. Clean internal pipeline status markers
+    html = html.replace(/\*?\(Status:\s*filtered_by_evidence_gate\)\*?/gi, '<span class="status-advisory-tag filter-advisory"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Withheld: Lacks Source Evidence</span>');
+    html = html.replace(/\*?\(Status:\s*verified_content\)\*?/gi, '');
+
+    // 3. Convert [Evidence: criterion:Q#] to human-readable citation badges
+    return html.replace(/\[(?:(Verified|Unverified)\s+)?Evidence:\s*([^\]]+)\]/gi, (match, status, content) => {
+        const cleanContent = content.trim();
+        const isUnverified = (status && status.toLowerCase() === "unverified") || cleanContent.toLowerCase().includes("unverified");
+        const badgeClass = isUnverified ? "cite-unverified" : "cite-verified";
+        const iconSvg = isUnverified
+            ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+            : `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+        let displayLabel = cleanContent;
+        const parts = cleanContent.split(":");
+        if (parts.length === 2) {
+            const critKey = parts[0].toLowerCase();
+            const qNum = parts[1].toUpperCase();
+            const friendly = CRITERION_FRIENDLY_NAMES[critKey] || parts[0].replace(/_/g, " ");
+            displayLabel = `${friendly} [${qNum}]`;
+        } else if (/^Q\d+$/i.test(cleanContent)) {
+            displayLabel = `Evidence [${cleanContent.toUpperCase()}]`;
+        }
+
+        return `<span class="evidence-cite-badge ${badgeClass}" title="Grounding citation: ${cleanContent} — Click to view in Grounding Matrix" data-citation="${cleanContent}" onclick="jumpToEvidenceCitation('${cleanContent}')">${iconSvg}<span>${escapeHtml(displayLabel)}</span></span>`;
+    });
+}
+
+function renderSimpleMarkdown(text) {
+    if (!text) return "";
     let html = escapeHtml(text);
-    // Headers
-    html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
-    html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
-    html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
-    // Bold
+    html = formatEvidenceCitations(html);
+    html = html.replace(/^### (.+)$/gm, "<h4>$1</h4>");
+    html = html.replace(/^## (.+)$/gm, "<h3>$1</h3>");
+    html = html.replace(/^# (.+)$/gm, "<h2>$1</h2>");
     html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    // Italic
     html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-    // Lists
     html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
     html = html.replace(/^(\d+)\. (.+)$/gm, "<li>$2</li>");
-    // Paragraphs (double newline)
     html = html.replace(/\n\n/g, "</p><p>");
     html = "<p>" + html + "</p>";
-    // Code
     html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-    // Horizontal rule
     html = html.replace(/^---$/gm, "<hr>");
     return html;
 }
 
-// ---- Sidebar Tab Switching ----
+function renderPublicationReport(text) {
+    if (!text) return '<p class="placeholder-text">Empty review report.</p>';
+
+    // Clean markdown bolding (**) for robust regex matching
+    const cleanText = (text || "").replace(/\*\*/g, "");
+
+    // 1. Title
+    const titleMatch = cleanText.match(/^#\s+(?:Review:\s*)?([^\r\n]+)/m);
+    let paperTitle = titleMatch ? titleMatch[1].trim() : "";
+    const INVALID_TITLES = ["keywords", "keyword", "abstract", "untitled", "no title found", "none", "title not identified"];
+    if (!paperTitle || INVALID_TITLES.includes(paperTitle.toLowerCase()) || paperTitle.toLowerCase().startsWith("keyword")) {
+        const activeRun = (typeof allRunsList !== "undefined" && Array.isArray(allRunsList)) ? allRunsList.find(r => r.name === currentRunDir) : null;
+        if (activeRun && activeRun.paper_title && !INVALID_TITLES.includes(activeRun.paper_title.toLowerCase()) && !activeRun.paper_title.toLowerCase().startsWith("keyword")) {
+            paperTitle = activeRun.paper_title;
+        } else if (activeRun && activeRun.original_filename) {
+            paperTitle = activeRun.original_filename.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+        } else if (typeof activeReviewFilename !== "undefined" && activeReviewFilename) {
+            paperTitle = activeReviewFilename.split("_ollama")[0].replace(/_/g, " ");
+        } else {
+            paperTitle = "Research Manuscript Review";
+        }
+    }
+
+    // 2. Score
+    const scoreMatch = cleanText.match(/(?:Overall Score:\s*|Score:\s*)([\d.]+)\s*\/\s*100/i);
+    const overallScore = scoreMatch ? parseFloat(scoreMatch[1]) : null;
+
+    // 3. Recommendation
+    const recMatch = cleanText.match(/(?:Final System Recommendation:\s*|Recommendation:\s*)([^\r\n]+)/i);
+    const recommendation = recMatch ? recMatch[1].trim() : "Pending";
+
+    // 4. Provisional Recommendation
+    const provMatch = cleanText.match(/(?:Provisional Recommendation:\s*)([^\r\n]+)/i);
+    const provisional = provMatch ? provMatch[1].trim() : null;
+
+    // 5. Evidence & Criteria Counts
+    const verifiedMatch = cleanText.match(/Verified Evidence:\s*(\d+)/i)
+        || cleanText.match(/Verified Quotations?:\s*(\d+)/i)
+        || cleanText.match(/Verified Quotes?:\s*(\d+)/i);
+    const verifiedCount = verifiedMatch ? parseInt(verifiedMatch[1], 10) : 0;
+
+    const unverifiedMatch = cleanText.match(/Unverified Evidence:\s*(\d+)/i)
+        || cleanText.match(/Unverified Quotations?:\s*(\d+)/i)
+        || cleanText.match(/Unverified Quotes?:\s*(\d+)/i);
+    const unverifiedCount = unverifiedMatch ? parseInt(unverifiedMatch[1], 10) : 0;
+
+    const criteriaMatch = cleanText.match(/Criteria:\s*(\d+)\s*\/\s*(\d+)/i);
+    const criteriaCount = criteriaMatch ? `${criteriaMatch[1]}/${criteriaMatch[2]}` : "8/8";
+
+    const totalQuotes = verifiedCount + unverifiedCount;
+    const coveragePercent = totalQuotes > 0 ? Math.round((verifiedCount / totalQuotes) * 100) : 0;
+
+    // Helper: section extractor
+    function extractSection(headingRegex, nextHeadingRegex) {
+        const start = text.search(headingRegex);
+        if (start === -1) return "";
+        const sub = text.substring(start);
+        const match = sub.match(headingRegex);
+        if (!match) return "";
+        const bodyStart = match[0].length;
+        const rest = sub.substring(bodyStart);
+        const nextMatch = rest.search(nextHeadingRegex || /\n##\s+/);
+        return (nextMatch !== -1 ? rest.substring(0, nextMatch) : rest).trim();
+    }
+
+    const execSummary = extractSection(/\n##\s+Executive Summary/i);
+    const warnings = extractSection(/\n###?\s+Warnings/i, /\n##\s+/);
+    const majorStrengths = extractSection(/\n###\s+Major Strengths/i, /\n###\s+/);
+    const majorConcerns = extractSection(/\n###\s+Major Concerns/i, /\n###\s+/);
+    const minorIssues = extractSection(/\n###\s+Minor Issues/i, /\n##\s+/);
+    const revisionSuggestions = extractSection(/\n##\s+Revision Suggestions/i, /\n##\s+/);
+
+    // Score radial dial calculations
+    const scoreVal = overallScore !== null ? overallScore : 0;
+    const circumference = 2 * Math.PI * 42; // ~263.89
+    const offset = circumference - (scoreVal / 100) * circumference;
+
+    let scoreColor = "var(--brand-primary)";
+    if (scoreVal >= 80) scoreColor = "var(--status-success)";
+    else if (scoreVal >= 65) scoreColor = "var(--brand-secondary)";
+    else if (scoreVal >= 50) scoreColor = "var(--status-warning)";
+    else scoreColor = "var(--status-error)";
+
+    let html = `
+    <div class="publication-report">
+        <!-- Hero Header -->
+        <div class="report-hero-card">
+            <div class="report-hero-left">
+                <span class="overview-eyebrow">PUBLICATION AUDIT REPORT</span>
+                <h2>${escapeHtml(paperTitle)}</h2>
+                <div class="report-hero-meta">
+                    <span class="badge-status ${getStatusBadgeClass(recommendation)}">${escapeHtml(recommendation)}</span>
+                    ${provisional ? `<span class="badge-rec">Provisional: ${escapeHtml(provisional)}</span>` : ''}
+                    <span class="badge-score">Criteria Evaluated: ${criteriaCount}</span>
+                    <span class="badge-score">Verified Evidence: ${totalQuotes > 0 ? `${verifiedCount} / ${totalQuotes} (${coveragePercent}%)` : `${verifiedCount} verified`}</span>
+                </div>
+            </div>
+            <div class="report-hero-right">
+                <div class="score-radial-container" style="margin: 0;">
+                    <svg class="score-radial-svg" viewBox="0 0 100 100" aria-hidden="true">
+                        <circle class="score-radial-bg" cx="50" cy="50" r="42" />
+                        <circle class="score-radial-fill" cx="50" cy="50" r="42" 
+                                stroke="${scoreColor}" 
+                                stroke-dasharray="${circumference.toFixed(2)}" 
+                                stroke-dashoffset="${offset.toFixed(2)}" />
+                    </svg>
+                    <div class="metric-value-wrap score-radial-center">
+                        <strong class="review-metric-value">${overallScore !== null ? overallScore.toFixed(1) : '—'}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Warnings Banner
+    if (warnings) {
+        html += `
+        <div class="evidence-grounding-disclaimer" style="border-left-color: var(--status-warning); background: var(--status-warning-bg); margin-bottom: 1.5rem;">
+            <div class="disclaimer-icon" style="color: var(--status-warning); font-size: 1.2rem;">⚠️</div>
+            <div class="disclaimer-text">
+                <strong style="color: var(--status-warning); font-size: 0.88rem;">Evaluation Warnings &amp; Governance Flags</strong>
+                <div style="margin-top: 0.35rem; font-size: 0.82rem; line-height: 1.5;">${renderSimpleMarkdown(warnings)}</div>
+            </div>
+        </div>`;
+    }
+
+    // Executive Summary
+    if (execSummary) {
+        html += `
+        <div class="report-section-card">
+            <h3><span style="color: var(--brand-primary);">◈</span> Executive Summary</h3>
+            <p style="font-size: 0.94rem; line-height: 1.7; color: var(--text-secondary);">${formatEvidenceCitations(escapeHtml(execSummary))}</p>
+        </div>`;
+    }
+
+    // Strengths & Concerns Comparison
+    if (majorStrengths || majorConcerns || minorIssues) {
+        html += `
+        <div class="report-section-card">
+            <h3><span style="color: var(--brand-primary);">❖</span> Peer Review Critique</h3>
+            <div class="strengths-weaknesses-cols">
+                <div class="col-card strengths-col">
+                    <h4 style="color: var(--status-success);">✓ Major Strengths</h4>
+                    <div>${renderSimpleMarkdown(majorStrengths || "No major strengths noted.")}</div>
+                </div>
+                <div class="col-card weaknesses-col">
+                    <h4 style="color: var(--status-warning);">! Concerns &amp; Weaknesses</h4>
+                    <div>${renderSimpleMarkdown(majorConcerns || "No major concerns noted.")}</div>
+                    ${minorIssues ? `<div style="margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;"><strong style="font-size: 0.8rem; color: var(--text-muted);">Minor Issues:</strong>${renderSimpleMarkdown(minorIssues)}</div>` : ''}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Revision Suggestions
+    if (revisionSuggestions) {
+        html += `
+        <div class="report-section-card">
+            <h3><span style="color: var(--brand-primary);">✦</span> Actionable Revision Suggestions</h3>
+            <div style="font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary);">${renderSimpleMarkdown(revisionSuggestions)}</div>
+        </div>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+function renderMarkdown(text) {
+    if (!text) return "";
+    // If text looks like a synthesized review report, use publication renderer
+    if (text.includes("## Overall Assessment") || text.includes("Overall Score:") || text.startsWith("# Review:")) {
+        return renderPublicationReport(text);
+    }
+    return renderSimpleMarkdown(text);
+}
+
+// ---- Sidebar & Configuration Drawer State Management ----
+
+function openConfigPanel() {
+    const panel = document.getElementById("config-panel");
+    const backdrop = document.getElementById("sidebar-backdrop");
+    const headerBtn = document.getElementById("header-config-toggle");
+    const sidebarBtn = document.getElementById("sidebar-config-btn");
+    const toggleBtn = document.getElementById("panel-toggle");
+    if (!panel) return;
+    panel.classList.add("open");
+    panel.classList.remove("collapsed");
+    if (backdrop) backdrop.classList.add("active");
+    if (window.innerWidth <= 900) {
+        document.body.classList.add("modal-open");
+    }
+    if (headerBtn) {
+        headerBtn.setAttribute("aria-expanded", "true");
+        headerBtn.classList.add("active");
+    }
+    if (sidebarBtn) {
+        sidebarBtn.setAttribute("aria-expanded", "true");
+        sidebarBtn.classList.add("active");
+    }
+    if (toggleBtn) {
+        toggleBtn.title = "Collapse configuration panel";
+    }
+}
+
+function closeConfigPanel() {
+    const panel = document.getElementById("config-panel");
+    const backdrop = document.getElementById("sidebar-backdrop");
+    const headerBtn = document.getElementById("header-config-toggle");
+    const sidebarBtn = document.getElementById("sidebar-config-btn");
+    if (!panel) return;
+    panel.classList.remove("open");
+    panel.classList.add("collapsed");
+    if (backdrop) backdrop.classList.remove("active");
+    document.body.classList.remove("modal-open");
+    if (headerBtn) {
+        headerBtn.setAttribute("aria-expanded", "false");
+        headerBtn.classList.remove("active");
+    }
+    if (sidebarBtn) {
+        sidebarBtn.setAttribute("aria-expanded", "false");
+        sidebarBtn.classList.remove("active");
+    }
+}
 
 function toggleConfigPanel() {
     const panel = document.getElementById("config-panel");
-    const btn = document.getElementById("panel-toggle");
-    panel.classList.toggle("collapsed");
-    btn.innerHTML = panel.classList.contains("collapsed") ? "&rsaquo;" : "&lsaquo;";
-    btn.title = panel.classList.contains("collapsed") ? "Expand panel" : "Collapse panel";
+    if (!panel) return;
+    if (panel.classList.contains("open")) {
+        closeConfigPanel();
+    } else {
+        openConfigPanel();
+    }
 }
+
+function openMobileConfigPanel() {
+    openConfigPanel();
+}
+
+function closeMobileConfigPanel() {
+    closeConfigPanel();
+}
+
+// ---- Mobile Header Actions Dropdown Menu (<640px) ----
+
+function openMobileActionsMenu() {
+    const controls = document.getElementById("header-run-controls");
+    const btn = document.getElementById("mobile-actions-toggle");
+    if (!controls) return;
+    controls.classList.add("open");
+    if (btn) {
+        btn.setAttribute("aria-expanded", "true");
+        btn.classList.add("active");
+    }
+}
+
+function closeMobileActionsMenu() {
+    const controls = document.getElementById("header-run-controls");
+    const btn = document.getElementById("mobile-actions-toggle");
+    if (!controls) return;
+    controls.classList.remove("open");
+    if (btn) {
+        btn.setAttribute("aria-expanded", "false");
+        btn.classList.remove("active");
+    }
+}
+
+function toggleMobileActionsMenu() {
+    const controls = document.getElementById("header-run-controls");
+    if (!controls) return;
+    if (controls.classList.contains("open")) {
+        closeMobileActionsMenu();
+    } else {
+        openMobileActionsMenu();
+    }
+}
+
+// ---- Ollama Real Health Check & Diagnostics ----
+
+let isCheckingOllama = false;
+
+async function checkOllamaHealth() {
+    if (isCheckingOllama) return;
+    isCheckingOllama = true;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    try {
+        const res = await fetch("/api/health", { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        updateOllamaHealthUI(data);
+    } catch (err) {
+        clearTimeout(timeoutId);
+        updateOllamaHealthUI({
+            status: err.name === "AbortError" ? "timeout" : "offline",
+            model: "llama3.2:3b",
+            detail: err.name === "AbortError" ? "Health check timed out" : "Local Ollama service unreachable"
+        });
+    } finally {
+        isCheckingOllama = false;
+    }
+}
+
+function updateOllamaHealthUI(health) {
+    const pill = document.getElementById("ollama-status-pill");
+    const dot = document.getElementById("ollama-status-dot");
+    const text = document.getElementById("ollama-status-text");
+    if (!pill || !dot || !text) return;
+
+    pill.classList.remove("online", "offline", "warning", "checking");
+    dot.classList.remove("online", "offline", "warning", "checking");
+
+    if (health.status === "online") {
+        pill.classList.add("online");
+        dot.classList.add("online");
+        text.textContent = `Ollama Online · ${health.model || "llama3.2:3b"}`;
+        pill.title = health.detail || `Local Ollama service active with ${health.model}`;
+    } else if (health.status === "model_missing") {
+        pill.classList.add("warning");
+        dot.classList.add("warning");
+        text.textContent = "Model Not Found";
+        pill.title = health.detail || `Required model ${health.model} is not downloaded in Ollama`;
+    } else if (health.status === "timeout") {
+        pill.classList.add("warning");
+        dot.classList.add("warning");
+        text.textContent = "Ollama Timeout";
+        pill.title = "Health check request to local Ollama service timed out";
+    } else {
+        pill.classList.add("offline");
+        dot.classList.add("offline");
+        text.textContent = "Ollama Offline";
+        pill.title = "Local inference service is unavailable (localhost:11434). Run 'ollama serve' to start.";
+    }
+}
+
+let ollamaHealthInterval = null;
+
+function initOllamaHealthCheck() {
+    checkOllamaHealth();
+    if (ollamaHealthInterval) clearInterval(ollamaHealthInterval);
+    ollamaHealthInterval = setInterval(checkOllamaHealth, 30000);
+
+    // Refresh immediately when tab gains focus/visibility
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            checkOllamaHealth();
+        }
+    });
+}
+
+// ---- Sidebar Tab Switching ----
 
 function switchSidebarTab(tabName) {
     if (tabName !== "config" && Object.keys(configDirty).length > 0) {
@@ -3395,10 +4738,13 @@ function renderConfigEditor(config) {
                 itemsHtml += renderItem(k, config[k]);
                 assigned.add(k);
             }
-            sectionsHtml += `<div class="config-category-group">
-                <div class="config-category-header">
-                    <span class="cat-icon" aria-hidden="true">${cat.icon}</span>
-                    <h4 class="cat-title">${escapeHtml(cat.title)}</h4>
+            sectionsHtml += `<div class="config-category-group" data-cat-id="${cat.id}">
+                <div class="config-category-header" role="button" tabindex="0" aria-expanded="true" title="Click to collapse or expand">
+                    <div class="cat-header-left">
+                        <span class="cat-icon" aria-hidden="true">${cat.icon}</span>
+                        <h4 class="cat-title">${escapeHtml(cat.title)}</h4>
+                    </div>
+                    <svg class="cat-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </div>
                 <div class="config-category-items">${itemsHtml}</div>
             </div>`;
@@ -3412,16 +4758,37 @@ function renderConfigEditor(config) {
         for (const k of remainingKeys) {
             itemsHtml += renderItem(k, config[k]);
         }
-        sectionsHtml += `<div class="config-category-group">
-            <div class="config-category-header">
-                <span class="cat-icon" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-                <h4 class="cat-title">Other Runtime Settings</h4>
+        sectionsHtml += `<div class="config-category-group" data-cat-id="other">
+            <div class="config-category-header" role="button" tabindex="0" aria-expanded="true" title="Click to collapse or expand">
+                <div class="cat-header-left">
+                    <span class="cat-icon" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                    <h4 class="cat-title">Other Runtime Settings</h4>
+                </div>
+                <svg class="cat-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="config-category-items">${itemsHtml}</div>
         </div>`;
     }
 
     configContent.innerHTML = sectionsHtml;
+
+    // Collapsible accordion interaction
+    configContent.querySelectorAll(".config-category-header").forEach(hdr => {
+        const toggle = () => {
+            const group = hdr.closest(".config-category-group");
+            if (group) {
+                const isCollapsed = group.classList.toggle("collapsed");
+                hdr.setAttribute("aria-expanded", String(!isCollapsed));
+            }
+        };
+        hdr.addEventListener("click", toggle);
+        hdr.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggle();
+            }
+        });
+    });
 
     // Track changes
     const banner = document.getElementById("config-unsaved-banner");

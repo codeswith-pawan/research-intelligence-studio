@@ -33,8 +33,32 @@ FRONT_MATTER_PATTERNS = [
 
 SECTION_HEADINGS = {
     'abstract', 'introduction', 'contents', 'table of contents', 'index',
-    'references', 'appendix', 'acknowledgments', 'acknowledgements', 'background'
+    'references', 'appendix', 'acknowledgments', 'acknowledgements', 'background',
+    'keywords', 'keyword', 'author keywords', 'index terms', 'categories and subject descriptors',
+    'related work', 'methodology', 'methods', 'results', 'discussion', 'conclusion', 'conclusions',
+    'evaluation', 'experiments', 'overview', 'summary'
 }
+
+INVALID_TITLE_SET = {
+    'keywords', 'keyword', 'author keywords', 'abstract', 'untitled',
+    'no title found', 'none', 'title not identified'
+}
+
+def sanitize_extracted_title(raw: Optional[str]) -> Optional[str]:
+    """Sanitize and validate a candidate title. Return None if it is a section heading, email, or invalid."""
+    if not raw:
+        return None
+    cleaned = clean_title_text(raw).strip()
+    c_lower = cleaned.lower()
+    if not cleaned or len(cleaned) < 3:
+        return None
+    if c_lower in INVALID_TITLE_SET or any(c_lower.startswith(x) for x in ('keyword', 'abstract', 'untitled', 'no title found')):
+        return None
+    if is_section_heading_title(cleaned):
+        return None
+    if '@' in cleaned or '|' in cleaned or 'http' in cleaned:
+        return None
+    return cleaned
 
 def is_front_matter_line(line: str) -> bool:
     """Check if a line matches known front-matter, disclaimer, or journal banner patterns."""
@@ -51,44 +75,62 @@ def clean_title_text(raw: str) -> str:
     cleaned = re.sub(r'\s+', ' ', cleaned)
     return cleaned.strip()
 
+def is_section_heading_title(text: str) -> bool:
+    """Check if a string represents an academic section heading (e.g. Abstract, Keywords, 1. Introduction)."""
+    t = clean_title_text(text).lower()
+    t = re.sub(r'^(\d+(\.\d+)*|[ivxlcdm]+[\.\)])\s*', '', t).strip()
+    return t in SECTION_HEADINGS or any(t.startswith(s) for s in ('abstract', 'keyword', 'introduction', 'references', 'index terms'))
+
+def is_terminal_preamble_heading(text: str) -> bool:
+    """Check if a heading marks the boundary where manuscript body starts (Abstract, Introduction)."""
+    t = clean_title_text(text).lower()
+    t = re.sub(r'^(\d+(\.\d+)*|[ivxlcdm]+[\.\)])\s*', '', t).strip()
+    return any(t.startswith(s) for s in ('abstract', 'introduction', 'contents', 'table of contents'))
+
 def extract_title_from_text(markdown_text: str) -> str:
     """
     Deterministic title extraction that ignores front-matter notices/disclaimers
-    and prioritizes genuine paper title headings.
+    and prioritizes genuine paper title headings before the Abstract.
     """
     if not markdown_text or not markdown_text.strip():
         return "No Title Found"
 
     raw_paragraphs = [p.strip() for p in markdown_text.split('\n\n') if p.strip()]
 
-    # Pass 1: Look for explicit markdown headings (# or ##) in the first few blocks
+    # Pass 1: Look for explicit markdown headings (# or ##) in the first blocks BEFORE abstract
     for para in raw_paragraphs[:15]:
+        hit_section = False
         for line in para.split('\n'):
             line = line.strip()
             if line.startswith('#'):
                 candidate = clean_title_text(line)
                 if not candidate or len(candidate) < 3:
                     continue
-                if candidate.lower() in SECTION_HEADINGS:
+                if is_section_heading_title(candidate):
+                    if is_terminal_preamble_heading(candidate):
+                        hit_section = True
+                        break
                     continue
                 if is_front_matter_line(candidate):
                     continue
                 return candidate
+        if hit_section:
+            break
 
-    # Pass 2: If no heading tag, look for non-front-matter paragraphs
-    for para in raw_paragraphs[:8]:
-        if is_front_matter_line(para):
-            continue
+    # Pass 2: If no heading tag found before abstract, look for non-front-matter paragraphs before abstract
+    for para in raw_paragraphs[:10]:
         first_line = para.split('\n')[0].strip()
         candidate = clean_title_text(first_line)
-        if not candidate or len(candidate) < 3:
+        if is_section_heading_title(candidate):
+            break
+        if is_front_matter_line(para) or is_front_matter_line(candidate):
             continue
-        if candidate.lower() in SECTION_HEADINGS:
+        # Also clean full paragraph to capture multi-line titles in markdown
+        full_candidate = clean_title_text(para.replace('\n', ' '))
+        if '@' in candidate or 'http' in candidate or '|' in candidate:
             continue
-        if is_front_matter_line(candidate):
-            continue
-        if len(candidate) > 5 and not candidate.endswith((' to', ' and', ' with', ' for', ' the')):
-            return candidate
+        if len(full_candidate) > 5 and not full_candidate.endswith((' to', ' and', ' with', ' for', ' the')):
+            return full_candidate
 
     return "No Title Found"
 
@@ -120,18 +162,23 @@ def extract_metadata(markdown_text: str) -> PaperMetadata:
 
         # Look for "Abstract" heading or similar patterns
         if not abstract_started:
-            if (stripped.lower().startswith('abstract') or
+            cleaned_strip = clean_title_text(stripped).lower()
+            if (cleaned_strip.startswith('abstract') or
+                cleaned_strip in ['summary', 'introduction'] or
+                stripped.lower().startswith('abstract') or
                 stripped.lower() in ['summary', 'introduction'] or
-                '## abstract' in stripped.lower() or
-                '# abstract' in stripped.lower()):
+                'abstract' in stripped.lower() and len(cleaned_strip) < 30):
                 abstract_started = True
                 # Skip the heading line itself, start from next
                 continue
 
         # If we're in the abstract section
         elif abstract_started:
-            # Stop at next major heading or end of reasonable abstract length
+            cleaned_heading = clean_title_text(stripped).lower()
+            # Stop at next major heading, keywords, or end of reasonable abstract length
             if (stripped.startswith('#') and not stripped.startswith('###')) or \
+               cleaned_heading.startswith('keyword') or \
+               cleaned_heading.startswith('index term') or \
                len(abstract_lines) > 20:  # Reasonable abstract length
                 break
 

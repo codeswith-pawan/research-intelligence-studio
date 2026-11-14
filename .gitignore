@@ -96,3 +96,23 @@ htmlcov/
 
 # Local-only mid-term report; do not upload to GitHub
 /final_midterm_report/
+
+# Personal career / synopsis documents
+*Resume*
+*Synopsis*
+build_synopsis.py
+synopsis_assets/
+scratch/
+
+# Temporary / experimental screenshot audit directories and intermediate audit captures
+docs/screenshots/*/
+docs/screenshots/viewport_*
+docs/screenshots/transform_*
+docs/screenshots/correction_*
+docs/screenshots/current_*
+docs/screenshots/audit_*
+docs/screenshots/redesign_*
+docs/screenshots/mobile_*
+docs/screenshots/modal_*
+docs/screenshots/reduced_motion_*
+!docs/architecture/

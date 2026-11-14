@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .card-step { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.5; rx: 8; ry: 8; }
+      .card-step-accent { fill: #ffffff; stroke: #059669; stroke-width: 2; rx: 8; ry: 8; }
+      .step-num { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; fill: #059669; letter-spacing: 0.05em; }
+      .title-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-weight: 700; font-size: 20px; fill: #0f172a; }
+      .subtitle-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13px; fill: #64748b; }
+      .node-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-weight: 600; font-size: 14px; fill: #0f172a; }
+      .node-desc { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; fill: #475569; }
+      .tag-accent { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-weight: 600; font-size: 11px; fill: #047857; }
+      .arrow { stroke: #059669; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#059669" />
+    </marker>
+    <filter id="stepShadow" x="-3%" y="-3%" width="106%" height="108%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.04" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="620" class="bg" />
+
+  <!-- Title Header -->
+  <text x="50" y="45" class="title-text">Research Intelligence Studio — Review Workflow</text>
+  <text x="50" y="68" class="subtitle-text">Deterministic 9-Stage Ingestion, Analysis, Grounding &amp; Human-in-the-Loop Governance Flow</text>
+
+  <!-- ROW 1: Stages 1 to 5 (Top Left to Right) -->
+
+  <!-- Stage 1: Upload Manuscript -->
+  <g filter="url(#stepShadow)">
+    <rect x="50" y="110" width="185" height="180" class="card-step" />
+    <text x="65" y="135" class="step-num">STAGE 01</text>
+    <text x="65" y="160" class="node-title">Upload Manuscript</text>
+    <text x="65" y="185" class="node-desc">User submits PDF/DOCX.</text>
+    <text x="65" y="205" class="node-desc">Duplicate detection via</text>
+    <text x="65" y="223" class="node-desc">SHA-256 byte hashing.</text>
+    <text x="65" y="255" class="tag-accent">✓ Isolated Run ID</text>
+  </g>
+
+  <!-- Stage 2: Content Extraction -->
+  <g filter="url(#stepShadow)">
+    <rect x="280" y="110" width="185" height="180" class="card-step" />
+    <text x="295" y="135" class="step-num">STAGE 02</text>
+    <text x="295" y="160" class="node-title">Content Extraction</text>
+    <text x="295" y="185" class="node-desc">PyMuPDF4LLM &amp; MarkItDown</text>
+    <text x="295" y="205" class="node-desc">convert text to Markdown.</text>
+    <text x="295" y="223" class="node-desc">Extract title, abstract,</text>
+    <text x="295" y="241" class="node-desc">&amp; token counts.</text>
+    <text x="295" y="265" class="tag-accent">✓ Deterministic MD</text>
+  </g>
+
+  <!-- Stage 3: Section Mapping -->
+  <g filter="url(#stepShadow)">
+    <rect x="510" y="110" width="185" height="180" class="card-step" />
+    <text x="525" y="135" class="step-num">STAGE 03</text>
+    <text x="525" y="160" class="node-title">Section Mapping</text>
+    <text x="525" y="185" class="node-desc">Academic section analyzer</text>
+    <text x="525" y="205" class="node-desc">identifies intro, methods,</text>
+    <text x="525" y="223" class="node-desc">results, discussions, &amp;</text>
+    <text x="525" y="241" class="node-desc">future work boundaries.</text>
+    <text x="525" y="265" class="tag-accent">✓ Structural Map</text>
+  </g>
+
+  <!-- Stage 4: Extractor Agent -->
+  <g filter="url(#stepShadow)">
+    <rect x="740" y="110" width="185" height="180" class="card-step" />
+    <text x="755" y="135" class="step-num">STAGE 04</text>
+    <text x="755" y="160" class="node-title">Extractor Agent</text>
+    <text x="755" y="185" class="node-desc">Local LLM extracts</text>
+    <text x="755" y="205" class="node-desc">substantive claims and</text>
+    <text x="755" y="223" class="node-desc">provisional candidate</text>
+    <text x="755" y="241" class="node-desc">quotations per criterion.</text>
+    <text x="755" y="265" class="tag-accent">✓ Claims &amp; Quotes</text>
+  </g>
+
+  <!-- Stage 5: Critic Scoring -->
+  <g filter="url(#stepShadow)">
+    <rect x="970" y="110" width="185" height="180" class="card-step" />
+    <text x="985" y="135" class="step-num">STAGE 05</text>
+    <text x="985" y="160" class="node-title">Critic Scoring</text>
+    <text x="985" y="185" class="node-desc">Evaluates 8 dimensions</text>
+    <text x="985" y="205" class="node-desc">(originality, rigor,</text>
+    <text x="985" y="223" class="node-desc">methodology, clarity, etc.)</text>
+    <text x="985" y="241" class="node-desc">Generates raw score.</text>
+    <text x="985" y="265" class="tag-accent">✓ 8 Rubric Scores</text>
+  </g>
+
+  <!-- ROW 2: Stages 6 to 9 (Bottom Right to Left) -->
+
+  <!-- Stage 6: Fact Checker (Verification) -->
+  <g filter="url(#stepShadow)">
+    <rect x="970" y="370" width="185" height="180" class="card-step-accent" />
+    <text x="985" y="395" class="step-num">STAGE 06</text>
+    <text x="985" y="420" class="node-title">Evidence Checker</text>
+    <text x="985" y="445" class="node-desc">Deterministic search</text>
+    <text x="985" y="465" class="node-desc">verifies quotes against</text>
+    <text x="985" y="483" class="node-desc">actual source text.</text>
+    <text x="985" y="501" class="node-desc">Flags unverified quotes.</text>
+    <text x="985" y="525" class="tag-accent">✓ Exact Verbatim Match</text>
+  </g>
+
+  <!-- Stage 7: Grounding Matrix -->
+  <g filter="url(#stepShadow)">
+    <rect x="740" y="370" width="185" height="180" class="card-step" />
+    <text x="755" y="395" class="step-num">STAGE 07</text>
+    <text x="755" y="420" class="node-title">Grounding Matrix</text>
+    <text x="755" y="445" class="node-desc">Compiles evidence</text>
+    <text x="755" y="465" class="node-desc">audit trail, mapping</text>
+    <text x="755" y="483" class="node-desc">every verified quote to</text>
+    <text x="755" y="501" class="node-desc">its target manuscript section.</text>
+    <text x="755" y="525" class="tag-accent">✓ Traceable Matrix</text>
+  </g>
+
+  <!-- Stage 8: Safety Gate & Synthesis -->
+  <g filter="url(#stepShadow)">
+    <rect x="510" y="370" width="185" height="180" class="card-step-accent" />
+    <text x="525" y="395" class="step-num">STAGE 08</text>
+    <text x="525" y="420" class="node-title">Safety Gate</text>
+    <text x="525" y="445" class="node-desc">Calculates coverage %.</text>
+    <text x="525" y="465" class="node-desc">If coverage &lt; threshold,</text>
+    <text x="525" y="483" class="node-desc">withholds acceptance &amp;</text>
+    <text x="525" y="501" class="node-desc">sets "Needs Manual Review".</text>
+    <text x="525" y="525" class="tag-accent">✓ Governance Intercept</text>
+  </g>
+
+  <!-- Stage 9: Human Peer Reviewer -->
+  <g filter="url(#stepShadow)">
+    <rect x="280" y="370" width="185" height="180" class="card-step" />
+    <text x="295" y="395" class="step-num">STAGE 09</text>
+    <text x="295" y="420" class="node-title">Human Oversight</text>
+    <text x="295" y="445" class="node-desc">Qualified peer reviewer</text>
+    <text x="295" y="465" class="node-desc">inspects report, verifies</text>
+    <text x="295" y="483" class="node-desc">claims, checks flags,</text>
+    <text x="295" y="501" class="node-desc">&amp; makes final decision.</text>
+    <text x="295" y="525" class="tag-accent">✓ Human Copilot</text>
+  </g>
+
+  <!-- Connective Arrows -->
+  <path d="M 235 200 L 280 200" class="arrow" />
+  <path d="M 465 200 L 510 200" class="arrow" />
+  <path d="M 695 200 L 740 200" class="arrow" />
+  <path d="M 925 200 L 970 200" class="arrow" />
+
+  <!-- Turn from Stage 5 down to Stage 6 -->
+  <path d="M 1062 290 L 1062 370" class="arrow" />
+
+  <!-- Bottom Row: Stage 6 -> 7 -> 8 -> 9 -->
+  <path d="M 970 460 L 925 460" class="arrow" />
+  <path d="M 740 460 L 695 460" class="arrow" />
+  <path d="M 510 460 L 465 460" class="arrow" />
+</svg>

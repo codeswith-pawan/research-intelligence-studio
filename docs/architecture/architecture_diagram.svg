@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .card-bg { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.5; rx: 8; ry: 8; }
+      .card-accent { fill: #ffffff; stroke: #059669; stroke-width: 2; rx: 8; ry: 8; }
+      .header-bg { fill: #0f172a; }
+      .title-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-weight: 700; font-size: 20px; fill: #0f172a; }
+      .subtitle-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13px; fill: #64748b; }
+      .badge-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-weight: 600; font-size: 11px; fill: #047857; }
+      .node-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-weight: 600; font-size: 15px; fill: #0f172a; }
+      .node-desc { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; fill: #475569; }
+      .arrow { stroke: #059669; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .arrow-dashed { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 4,4; fill: none; marker-end: url(#arrowhead-gray); }
+      .layer-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-weight: 700; font-size: 12px; fill: #059669; text-transform: uppercase; letter-spacing: 0.08em; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#059669" />
+    </marker>
+    <marker id="arrowhead-gray" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+    </marker>
+    <filter id="shadow" x="-3%" y="-3%" width="106%" height="108%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.04" />
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1200" height="680" class="bg" />
+
+  <!-- Diagram Title Header -->
+  <text x="50" y="45" class="title-text">Research Intelligence Studio — System Architecture</text>
+  <text x="50" y="68" class="subtitle-text">Multi-Agent Academic Paper Review &amp; Deterministic Evidence Grounding Engine</text>
+
+  <!-- COLUMN 1: CLIENT & PRESENTATION LAYER -->
+  <rect x="40" y="95" width="220" height="540" fill="#f1f5f9" rx="10" ry="10" stroke="#cbd5e1" stroke-width="1" />
+  <text x="60" y="125" class="layer-title">Presentation Layer</text>
+
+  <!-- Node: Web Client -->
+  <g filter="url(#shadow)">
+    <rect x="55" y="145" width="190" height="90" class="card-bg" />
+    <text x="70" y="175" class="node-title">Web UI SPA</text>
+    <text x="70" y="195" class="node-desc">Vanilla JS + CSS Tokens</text>
+    <text x="70" y="213" class="node-desc">Academic Paperpal Design</text>
+  </g>
+
+  <!-- Node: Views -->
+  <g filter="url(#shadow)">
+    <rect x="55" y="255" width="190" height="150" class="card-bg" />
+    <text x="70" y="283" class="node-title">Dashboard &amp; Studios</text>
+    <text x="70" y="305" class="node-desc">• System Overview</text>
+    <text x="70" y="325" class="node-desc">• Paper Overview</text>
+    <text x="70" y="345" class="node-desc">• Analysis Studio</text>
+    <text x="70" y="365" class="node-desc">• Grounding Matrix Modal</text>
+    <text x="70" y="385" class="node-desc">• Past Reviews Archive</text>
+  </g>
+
+  <!-- Node: Export Engine Client -->
+  <g filter="url(#shadow)">
+    <rect x="55" y="425" width="190" height="85" class="card-bg" />
+    <text x="70" y="453" class="node-title">Document Exporters</text>
+    <text x="70" y="473" class="node-desc">PDF, Markdown &amp; JSON</text>
+    <text x="70" y="491" class="node-desc">Client-side &amp; Server-side</text>
+  </g>
+
+  <!-- COLUMN 2: API & ORCHESTRATION LAYER -->
+  <rect x="290" y="95" width="260" height="540" fill="#f1f5f9" rx="10" ry="10" stroke="#cbd5e1" stroke-width="1" />
+  <text x="310" y="125" class="layer-title">Application Backend</text>
+
+  <!-- Node: FastAPI Gateway -->
+  <g filter="url(#shadow)">
+    <rect x="305" y="145" width="230" height="110" class="card-accent" />
+    <text x="325" y="175" class="node-title">FastAPI Gateway</text>
+    <text x="325" y="197" class="node-desc">REST Endpoints (web_app.py)</text>
+    <text x="325" y="217" class="node-desc">Runs, Reviews, Ingestion APIs</text>
+    <text x="325" y="235" class="badge-text">100% Offline / No telemetry</text>
+  </g>
+
+  <!-- Node: Document Extraction Pipeline -->
+  <g filter="url(#shadow)">
+    <rect x="305" y="275" width="230" height="130" class="card-bg" />
+    <text x="325" y="303" class="node-title">Ingestion Engine</text>
+    <text x="325" y="323" class="node-desc">core/paper_ingestor.py</text>
+    <text x="325" y="343" class="node-desc">• PyMuPDF4LLM (PDF to MD)</text>
+    <text x="325" y="363" class="node-desc">• MarkItDown (DOCX to MD)</text>
+    <text x="325" y="383" class="node-desc">• Preamble &amp; Title Healing</text>
+  </g>
+
+  <!-- Node: Run Isolation Manager -->
+  <g filter="url(#shadow)">
+    <rect x="305" y="425" width="230" height="100" class="card-bg" />
+    <text x="325" y="453" class="node-title">Run Isolation Core</text>
+    <text x="325" y="473" class="node-desc">Unique SHA-256 Run Dirs</text>
+    <text x="325" y="493" class="node-desc">Progress Tracking &amp; State</text>
+    <text x="325" y="511" class="node-desc">Trash &amp; Soft Delete Storage</text>
+  </g>
+
+  <!-- COLUMN 3: MULTI-AGENT INFERENCE LAYER -->
+  <rect x="580" y="95" width="310" height="540" fill="#f1f5f9" rx="10" ry="10" stroke="#cbd5e1" stroke-width="1" />
+  <text x="600" y="125" class="layer-title">Agentic Review Core</text>
+
+  <!-- Node: Specialized Review Agents -->
+  <g filter="url(#shadow)">
+    <rect x="595" y="145" width="280" height="185" class="card-bg" />
+    <text x="615" y="173" class="node-title">Specialized Review Agents</text>
+    <text x="615" y="195" class="node-desc">• Extractor Agent: extracts candidate</text>
+    <text x="627" y="213" class="node-desc">claims &amp; verbatim citations</text>
+    <text x="615" y="233" class="node-desc">• Critic Agent: 8-criterion rubric scoring</text>
+    <text x="615" y="253" class="node-desc">• Section Analyzer: academic structure</text>
+    <text x="615" y="273" class="node-desc">• Quality Analyzer: supplemental rigor</text>
+    <text x="615" y="293" class="node-desc">• Synthesizer Agent: review narrative</text>
+  </g>
+
+  <!-- Node: Local Inference Engine -->
+  <g filter="url(#shadow)">
+    <rect x="595" y="350" width="280" height="110" class="card-accent" />
+    <text x="615" y="378" class="node-title">Local LLM Inference Engine</text>
+    <text x="615" y="400" class="node-desc">Ollama Daemon (localhost:11434)</text>
+    <text x="615" y="420" class="node-desc">Model: llama3.2:3b</text>
+    <text x="615" y="438" class="badge-text">Zero API Cost · Privacy-First</text>
+  </g>
+
+  <!-- Node: Synthesis Rescue & Contract -->
+  <g filter="url(#shadow)">
+    <rect x="595" y="480" width="280" height="90" class="card-bg" />
+    <text x="615" y="508" class="node-title">Synthesis Safety Contract</text>
+    <text x="615" y="528" class="node-desc">JSON schema repair &amp; fallbacks</text>
+    <text x="615" y="546" class="node-desc">Zero-hallucination sanitization</text>
+  </g>
+
+  <!-- COLUMN 4: EVIDENCE VERIFICATION & GOVERNANCE -->
+  <rect x="920" y="95" width="240" height="540" fill="#f1f5f9" rx="10" ry="10" stroke="#cbd5e1" stroke-width="1" />
+  <text x="940" y="125" class="layer-title">Verification &amp; Governance</text>
+
+  <!-- Node: Deterministic Fact Checker -->
+  <g filter="url(#shadow)">
+    <rect x="935" y="145" width="210" height="120" class="card-accent" />
+    <text x="955" y="173" class="node-title">Fact Checker Agent</text>
+    <text x="955" y="193" class="node-desc">Deterministic Exact &amp;</text>
+    <text x="955" y="211" class="node-desc">Normalized Substring Matching</text>
+    <text x="955" y="231" class="badge-text">Exact Source PDF/DOCX Match</text>
+  </g>
+
+  <!-- Node: Grounding Matrix -->
+  <g filter="url(#shadow)">
+    <rect x="935" y="285" width="210" height="120" class="card-bg" />
+    <text x="955" y="313" class="node-title">Grounding Matrix</text>
+    <text x="955" y="333" class="node-desc">Maps quotes to sections</text>
+    <text x="955" y="353" class="node-desc">Invariant 5: Match verification</text>
+    <text x="955" y="373" class="node-desc">does not assume relevance</text>
+  </g>
+
+  <!-- Node: Human Review Safety Gate -->
+  <g filter="url(#shadow)">
+    <rect x="935" y="425" width="210" height="110" class="card-bg" />
+    <text x="955" y="453" class="node-title">Human Review Safety Gate</text>
+    <text x="955" y="473" class="node-desc">Withholds recommendation</text>
+    <text x="955" y="493" class="node-desc">when evidence coverage is low</text>
+    <text x="955" y="513" class="badge-text">Needs Manual Review Flag</text>
+  </g>
+
+  <!-- Connective Arrows -->
+  <!-- Web UI -> FastAPI -->
+  <path d="M 245 190 L 305 190" class="arrow" />
+
+  <!-- FastAPI -> Ingestion -->
+  <path d="M 420 255 L 420 275" class="arrow" />
+
+  <!-- Ingestion -> Agents -->
+  <path d="M 535 340 L 595 235" class="arrow" />
+
+  <!-- Agents -> Ollama -->
+  <path d="M 735 330 L 735 350" class="arrow" />
+
+  <!-- Agents -> Fact Checker -->
+  <path d="M 875 205 L 935 205" class="arrow" />
+
+  <!-- Fact Checker -> Grounding Matrix -->
+  <path d="M 1040 265 L 1040 285" class="arrow" />
+
+  <!-- Grounding Matrix -> Safety Gate -->
+  <path d="M 1040 405 L 1040 425" class="arrow" />
+
+  <!-- Safety Gate -> Output back to UI -->
+  <path d="M 935 480 L 535 480" class="arrow-dashed" />
+  <path d="M 305 480 L 245 330" class="arrow-dashed" />
+</svg>

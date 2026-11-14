@@ -132,6 +132,47 @@ def load_paper_overview_cache(
     if expected_sha256 and overview.file_hash_sha256 != expected_sha256:
         return None, "stale"
 
+    # Sanitize metadata title and abstract if corrupt/stale
+    INVALID_TITLES = {"keywords", "keyword", "abstract", "untitled", "no title found", "none", "title not identified"}
+    current_title = str(overview.metadata.get("title") or "").strip().lower()
+    current_abstract = str(overview.metadata.get("abstract") or "").strip()
+    needs_meta_repair = current_title in INVALID_TITLES or current_title.startswith("keyword") or "|" in current_abstract or "@" in current_abstract
+
+    if needs_meta_repair:
+        cache_paths = [
+            os.path.join(run_path, "ingestion_cache.json"),
+            os.path.join(run_path, "outputs", "ingestion_cache.json")
+        ]
+        for cp in cache_paths:
+            if os.path.isfile(cp):
+                try:
+                    from core.paper_ingestor import extract_metadata
+                    with open(cp, "r", encoding="utf-8") as cf:
+                        cdata = json.load(cf)
+                    papers_list = cdata if isinstance(cdata, list) else list(cdata.values())
+                    if papers_list and isinstance(papers_list[0], dict):
+                        p_item = papers_list[0]
+                        if p_item.get("content_markdown"):
+                            repaired_meta = extract_metadata(p_item["content_markdown"])
+                            if repaired_meta.title and repaired_meta.title.strip().lower() not in INVALID_TITLES:
+                                overview.metadata["title"] = repaired_meta.title
+                            else:
+                                overview.metadata["title"] = "Title not identified"
+                            if repaired_meta.abstract and "|" not in repaired_meta.abstract and "@" not in repaired_meta.abstract:
+                                overview.metadata["abstract"] = repaired_meta.abstract
+                        else:
+                            cand = p_item.get("metadata", {}).get("title") or p_item.get("title")
+                            if cand and str(cand).strip().lower() not in INVALID_TITLES:
+                                overview.metadata["title"] = str(cand).strip()
+                            else:
+                                overview.metadata["title"] = "Title not identified"
+                        save_paper_overview_cache(run_path, overview)
+                        break
+                except Exception:
+                    pass
+        if str(overview.metadata.get("title") or "").strip().lower() in INVALID_TITLES:
+            overview.metadata["title"] = "Title not identified"
+
     return overview, "valid"
 
 
@@ -282,11 +323,24 @@ def generate_paper_overview(
             traceable_references=refs,
         )
 
+    raw_title = str(paper.metadata.title or "").strip()
+    INVALID_TITLES = {"keywords", "keyword", "abstract", "untitled", "no title found", "none", "title not identified"}
+    if not raw_title or raw_title.lower() in INVALID_TITLES or raw_title.lower().startswith("keyword"):
+        from core.paper_ingestor import extract_title_from_text
+        c_title = extract_title_from_text(paper.content_markdown or "")
+        final_meta_title = c_title if c_title and c_title.lower() not in INVALID_TITLES else "Title not identified"
+    else:
+        final_meta_title = raw_title
+
+    clean_abstract = paper.metadata.abstract or ""
+    if clean_abstract and ("|" in clean_abstract or "@" in clean_abstract):
+        clean_abstract = "Abstract not explicitly identified in manuscript text."
+
     meta = {
-        "title": paper.metadata.title or paper.filename,
+        "title": final_meta_title,
         "authors": paper.metadata.authors or [],
         "year": paper.metadata.year,
-        "abstract": paper.metadata.abstract,
+        "abstract": clean_abstract,
         "token_count": paper.token_count,
     }
 
